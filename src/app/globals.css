@@ -1,0 +1,47 @@
+﻿/* Format baru Wajib untuk Tailwind v4 */
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #f8fafc;
+    background-image: 
+      radial-gradient(at 0% 0%, hsla(217, 100%, 95%, 1) 0, transparent 50%), 
+      radial-gradient(at 100% 0%, hsla(210, 100%, 97%, 1) 0, transparent 50%), 
+      radial-gradient(at 100% 100%, hsla(162, 100%, 96%, 1) 0, transparent 50%), 
+      radial-gradient(at 0% 100%, hsla(240, 100%, 96%, 1) 0, transparent 50%);
+    background-attachment: fixed;
+    color: #0f172a;
+  }
+}
+
+/* Di Tailwind v4, custom class pakai @utility agar terbaca otomatis */
+@utility glass-panel {
+  background-color: rgb(255 255 255 / 0.6);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgb(255 255 255 / 0.8);
+  box-shadow: 0 8px 30px rgb(0 0 0 / 0.04);
+  transition: all 300ms ease-in-out;
+}
+
+@utility glass-sidebar {
+  background-color: rgb(255 255 255 / 0.7);
+  backdrop-filter: blur(40px);
+  border-right: 1px solid rgb(255 255 255 / 0.8);
+  box-shadow: 4px 0 24px rgb(0 0 0 / 0.02);
+}
+
+@utility glass-card-hover {
+  &:hover {
+    background-color: rgb(255 255 255 / 0.8);
+    box-shadow: 0 8px 30px rgb(0 0 0 / 0.08);
+    transform: translateY(-4px);
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

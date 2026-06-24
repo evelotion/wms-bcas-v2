@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Baris url dihapus dari sini
+}
+
+// --- MASTER DATA ---
+model Master_Barang {
+  id            String   @id @default(uuid())
+  sku           String   @unique
+  nama          String
+  kategori      String
+  satuan        String // Pcs, Buku, Rim, dll
+  batas_minimum Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  batches           Batch_Barang[]
+  permintaanDetails Permintaan_Detail[]
+}
+
+model Lokasi_Rak {
+  id      String @id @default(uuid())
+  gudang  String
+  lorong  String
+  rak     String
+  qr_code String @unique
+
+  batches Batch_Barang[]
+}
+
+model Batch_Barang {
+  id            String   @id @default(cuid())
+  barangId      String
+  lokasiId      String
+  tanggal_masuk DateTime @default(now())
+  qty_awal      Int
+  qty_sisa      Int
+  harga_satuan  Float
+
+  // TAMBAHAN DARI V1: Data spesifik per batch penerimaan
+  supplier  String?
+  nomorator String?
+
+  status    String // AVAILABLE, QUARANTINE, DEPLETED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  barang Master_Barang   @relation(fields: [barangId], references: [id])
+  lokasi Lokasi_Rak      @relation(fields: [lokasiId], references: [id])
+  mutasi Mutasi_Ledger[]
+
+  // ---> INI BARIS YANG KURANG TADI BRO:
+  item_seri Item_Seri[]
+}
+
+model Item_Seri {
+  id         String       @id @default(uuid())
+  batchId    String
+  batch      Batch_Barang @relation(fields: [batchId], references: [id])
+  nomor_seri String // Bisa spesifik atau range (e.g., "0001-1000")
+  is_used    Boolean      @default(false)
+}
+
+model Mutasi_Ledger {
+  id      String       @id @default(uuid())
+  batchId String
+  batch   Batch_Barang @relation(fields: [batchId], references: [id])
+
+  tipe_mutasi   TipeMutasi
+  qty_perubahan Int // Positif untuk INBOUND/RETUR, negatif untuk OUTBOUND
+  saldo_akhir   Int // Snapshot sisa qty di batch ini SETELAH mutasi terjadi
+  referensi     String? // Nomor PO, Bukti FPKB, atau ID Requisition
+  keterangan    String?
+
+  createdAt DateTime @default(now())
+  createdBy String // ID User/Petugas (menyusul saat Sprint 2 setup NextAuth)
+}
+
+enum StatusBatch {
+  QUARANTINE
+  AVAILABLE
+  DEPLETED
+}
+
+enum TipeMutasi {
+  INBOUND
+  OUTBOUND
+  RETUR
+}
+
+// --- MODUL FASE 2: PERMINTAAN CABANG (REQUISITION) ---
+
+model Permintaan_Header {
+  id            String  @id @default(cuid())
+  nomor_request String  @unique // Contoh: REQ-202606-001
+  cabang        String // Tujuan / Unit kerja
+  pic_nama      String // Nama yang minta
+  status        String // PENDING, APPROVED, PARTIALLY_FULFILLED, OUTSTANDING, REJECTED
+  keterangan    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  details Permintaan_Detail[]
+}
+
+model Permintaan_Detail {
+  id            String  @id @default(cuid())
+  headerId      String
+  barangId      String
+  qty_diminta   Int // Jumlah yang direquest cabang
+  qty_disetujui Int     @default(0) // Jumlah yang sanggup dipenuhi gudang
+  status_item   String // PENDING, FULFILLED, OUTSTANDING
+  keterangan    String?
+
+  header Permintaan_Header @relation(fields: [headerId], references: [id], onDelete: Cascade)
+  barang Master_Barang     @relation(fields: [barangId], references: [id])
+}
+
+// --- MODUL FASE 5: SECURITY & AUTH ---
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  nama      String
+  password  String   // Untuk MVP kita simpan plain text, di production wajib bcrypt!
+  role      String   @default("STAF") // Pilihan: "SPV" atau "STAF"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
