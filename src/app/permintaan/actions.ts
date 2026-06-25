@@ -11,11 +11,23 @@ export async function getPermintaanFormData() {
 }
 
 // Tarik daftar form yang masuk (Status DRAFT)
-export async function getDaftarPermintaan() {
+export async function getDaftarPermintaan(): Promise<any[]> {
   return await prisma.permintaan_Header.findMany({
     where: { status: 'DRAFT' }, 
     include: {
       details: { include: { barang: true } }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+}
+
+// Tarik daftar barang yang statusnya Outstanding
+export async function getOutstandingList(): Promise<any[]> {
+  return await prisma.permintaan_Outstanding.findMany({
+    where: { status: 'OUTSTANDING' },
+    include: { 
+      barang: true, 
+      header: true 
     },
     orderBy: { createdAt: 'desc' }
   });
@@ -96,7 +108,7 @@ export async function approvePermintaan(headerId: string): Promise<{ success: bo
         const availableBatches = await tx.batch_Barang.findMany({
           where: {
             barangId: detail.barangId,
-            qty_sisa: { gt: 0 }, // <--- INI FIX NYA BRO (Pakai 'gt' bukan '>')
+            qty_sisa: { gt: 0 }, 
             status: 'AVAILABLE'
           },
           orderBy: { tanggal_masuk: 'asc' },

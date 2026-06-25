@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getPermintaanFormData, createPermintaan, getDaftarPermintaan, approvePermintaan } from "./actions";
+import { getPermintaanFormData, createPermintaan, getDaftarPermintaan, approvePermintaan, getOutstandingList } from "./actions";
 import { generateFPKB } from "@/lib/generateFpkb";
 import { ClipboardList, CheckCircle, Clock, AlertCircle, FilePlus, ChevronLeft, ChevronRight, UploadCloud, Archive, FileText } from "lucide-react";
-import SearchableSelect from "@/components/SearchableSelect"; // Pastikan file ini udah ada
+import SearchableSelect from "@/components/SearchableSelect";
 
 export default function RequisitionFulfillmentPage() {
   const [activeTab, setActiveTab] = useState<"requisition" | "outstanding">("requisition");
@@ -13,6 +13,7 @@ export default function RequisitionFulfillmentPage() {
   const [selectedBarangId, setSelectedBarangId] = useState("");
   
   const [permintaanList, setPermintaanList] = useState<any[]>([]);
+  const [outstandingList, setOutstandingList] = useState<any[]>([]); // State untuk Tab B
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -27,9 +28,11 @@ export default function RequisitionFulfillmentPage() {
 
   const fetchData = async () => {
     setIsLoading(true);
-    const [formOptions, requests] = await Promise.all([
+    // Panggil actions secara paralel, termasuk data Outstanding
+    const [formOptions, requests, outstandings] = await Promise.all([
       getPermintaanFormData(),
-      getDaftarPermintaan()
+      getDaftarPermintaan(),
+      getOutstandingList()
     ]);
     
     // Map data barang biar cocok sama props SearchableSelect { id, label, sku }
@@ -41,6 +44,7 @@ export default function RequisitionFulfillmentPage() {
     
     setBarangList(formattedBarang);
     setPermintaanList(requests || []);
+    setOutstandingList(outstandings || []);
     setIsLoading(false);
   };
 
@@ -66,7 +70,7 @@ export default function RequisitionFulfillmentPage() {
     if (res.success) {
       alert("✅ Permintaan berhasil dibuat! Menunggu Approval SPV.");
       formElement.reset(); 
-      setSelectedBarangId(""); // Reset dropdown ke state awal
+      setSelectedBarangId(""); 
       fetchData();
     } else {
       alert("❌ " + res.error);
@@ -76,7 +80,7 @@ export default function RequisitionFulfillmentPage() {
 
   // === APPROVE & GENERATE FPKB ===
   const handleApprove = async (id: string) => {
-    if (!confirm("Approve permintaan ini & jalankan FIFO?")) return;
+    if (!confirm("Approve FPP ini & jalankan FIFO?")) return;
     
     setProcessingId(id);
     const res = await approvePermintaan(id);
@@ -91,9 +95,8 @@ export default function RequisitionFulfillmentPage() {
 
       const reqData = permintaanList.find(r => r.id === id);
       if (reqData && instruksi.length > 0) {
-        // Nanti nomor FPKB ini digenerate otomatis dari backend (misal: 00001/FPKB-CTK/LOG/2026)
         generateFPKB({
-          referensi: reqData.nomor_request,
+          referensi: res.nomor_fpkb || reqData.nomor_fpp, // Pake nomor FPKB resmi
           tujuan: reqData.cabang,
           keterangan: reqData.keterangan || `Fulfillment Request Cabang`,
           qty: reqData.details[0]?.qty_disetujui || reqData.details[0]?.qty_diminta || 0,
@@ -103,7 +106,7 @@ export default function RequisitionFulfillmentPage() {
         });
       }
 
-      fetchData();
+      fetchData(); // Refresh UI untuk update tab Requisition dan Outstanding
     } else {
       alert("❌ " + res.error);
     }
@@ -112,7 +115,7 @@ export default function RequisitionFulfillmentPage() {
 
   const getStatusBadge = (status: string) => {
     if (status === 'APPROVED' || status === 'FULFILLED') return <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-md text-xs font-bold flex items-center gap-1 w-fit"><CheckCircle size={12}/> {status}</span>;
-    if (status === 'PENDING') return <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-bold flex items-center gap-1 w-fit"><Clock size={12}/> PENDING</span>;
+    if (status === 'PENDING' || status === 'DRAFT') return <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-bold flex items-center gap-1 w-fit"><Clock size={12}/> PENDING</span>;
     if (status === 'OUTSTANDING') return <span className="px-2 py-1 bg-red-100 text-red-700 rounded-md text-xs font-bold flex items-center gap-1 w-fit"><AlertCircle size={12}/> OUTSTANDING</span>;
     return <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-md text-xs font-bold w-fit">{status}</span>;
   };
@@ -189,7 +192,6 @@ export default function RequisitionFulfillmentPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Pilih Barang</label>
-                  {/* IMPLEMENTASI SEARCHABLE DROPDOWN */}
                   <SearchableSelect 
                     name="barangId"
                     options={barangList} 
@@ -243,7 +245,7 @@ export default function RequisitionFulfillmentPage() {
                     currentItems.map((req) => (
                       <tr key={req.id} className="hover:bg-white/40">
                         <td className="px-6 py-4">
-                          <div className="font-bold text-slate-800">{req.nomor_request}</div>
+                          <div className="font-bold text-slate-800">{req.nomor_fpp}</div>
                           <div className="text-xs text-slate-500">{new Date(req.createdAt).toLocaleDateString('id-ID')}</div>
                         </td>
                         <td className="px-6 py-4">
@@ -263,7 +265,7 @@ export default function RequisitionFulfillmentPage() {
                         </td>
                         <td className="px-6 py-4">{getStatusBadge(req.status)}</td>
                         <td className="px-6 py-4 text-center">
-                          {req.status === 'PENDING' ? (
+                          {req.status === 'PENDING' || req.status === 'DRAFT' ? (
                             <button 
                               onClick={() => handleApprove(req.id)}
                               disabled={processingId === req.id}
@@ -312,12 +314,46 @@ export default function RequisitionFulfillmentPage() {
              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <Archive size={18} className="text-orange-600"/> Daftar Barang Outstanding
              </h2>
-             <p className="text-sm text-slate-500 mt-1">Barang yang belum terpenuhi dari FPKB sebelumnya.</p>
+             <p className="text-sm text-slate-500 mt-1">Barang yang belum terpenuhi dari Form Cabang (FPP) sebelumnya.</p>
            </div>
-           <div className="p-12 flex flex-col items-center justify-center text-slate-400 text-sm bg-white/20">
-              <Archive size={48} className="text-slate-300 mb-3" />
-              Belum ada data outstanding saat ini.
-           </div>
+           
+           {outstandingList.length === 0 ? (
+             <div className="p-12 flex flex-col items-center justify-center text-slate-400 text-sm bg-white/20">
+                <Archive size={48} className="text-slate-300 mb-3" />
+                Belum ada data outstanding saat ini.
+             </div>
+           ) : (
+             <div className="overflow-x-auto">
+               <table className="w-full text-left text-sm">
+                 <thead className="bg-slate-100/50 text-slate-600 uppercase text-xs font-semibold">
+                   <tr>
+                     <th className="px-6 py-4">Tgl Outstanding</th>
+                     <th className="px-6 py-4">No. FPP Asal</th>
+                     <th className="px-6 py-4">Cabang</th>
+                     <th className="px-6 py-4">Detail Barang</th>
+                     <th className="px-6 py-4 text-right">Qty Kurang</th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y divide-white/40">
+                   {outstandingList.map((out) => (
+                     <tr key={out.id} className="hover:bg-white/40">
+                       <td className="px-6 py-4 text-slate-500">{new Date(out.createdAt).toLocaleDateString('id-ID')}</td>
+                       <td className="px-6 py-4 font-bold text-slate-800">{out.header.nomor_fpp}</td>
+                       <td className="px-6 py-4 text-slate-700">{out.header.cabang}</td>
+                       <td className="px-6 py-4">
+                         <div className="font-medium text-blue-700">{out.barang.nama}</div>
+                         <div className="text-xs text-slate-500">{out.barang.sku}</div>
+                       </td>
+                       <td className="px-6 py-4 text-right">
+                         <span className="font-bold text-red-600 text-base">{out.qty_sisa}</span>
+                         <span className="text-xs text-slate-500 ml-1">{out.barang.satuan}</span>
+                       </td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
+             </div>
+           )}
         </div>
       )}
 
