@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // Baris url dihapus dari sini
+  // Baris url dihapus dari sini (nanti baca dari .env)
 }
 
 // --- MASTER DATA ---
@@ -20,6 +20,7 @@ model Master_Barang {
 
   batches           Batch_Barang[]
   permintaanDetails Permintaan_Detail[]
+  outstandings      Permintaan_Outstanding[] // TAMBAHAN: Relasi untuk histori barang ngutang
 }
 
 model Lokasi_Rak {
@@ -41,7 +42,7 @@ model Batch_Barang {
   qty_sisa      Int
   harga_satuan  Float
 
-  // TAMBAHAN DARI V1: Data spesifik per batch penerimaan
+  // Data spesifik per batch penerimaan
   supplier  String?
   nomorator String?
 
@@ -53,7 +54,6 @@ model Batch_Barang {
   lokasi Lokasi_Rak      @relation(fields: [lokasiId], references: [id])
   mutasi Mutasi_Ledger[]
 
-  // ---> INI BARIS YANG KURANG TADI BRO:
   item_seri Item_Seri[]
 }
 
@@ -77,7 +77,7 @@ model Mutasi_Ledger {
   keterangan    String?
 
   createdAt DateTime @default(now())
-  createdBy String // ID User/Petugas (menyusul saat Sprint 2 setup NextAuth)
+  createdBy String // ID User/Petugas
 }
 
 enum StatusBatch {
@@ -92,20 +92,36 @@ enum TipeMutasi {
   RETUR
 }
 
+// === ENUM BARU UNTUK FLOW FPKB & OUTSTANDING ===
+enum StatusPermintaan {
+  DRAFT         // Form FPP di-upload, belum di-generate FPKB
+  RESERVED      // FPKB di-generate SPV, nunggu diambil petugas gudang
+  PICKED        // Sedang disiapkan petugas gudang
+  COMPLETED     // Selesai diserahterimakan
+}
+
+enum StatusItem {
+  FULFILLED     // Dipenuhi 100%
+  PARTIAL       // Dipenuhi sebagian, sisanya masuk outstanding
+  OUTSTANDING   // 0% dipenuhi (stok kosong)
+}
+
 // --- MODUL FASE 2: PERMINTAAN CABANG (REQUISITION) ---
 
 model Permintaan_Header {
   id            String  @id @default(cuid())
-  nomor_request String  @unique // Contoh: REQ-202606-001
+  nomor_fpp     String  @unique // Diubah dari nomor_request. Contoh input cabang: 070/FPP/LOG/2026
+  nomor_fpkb    String? @unique // Generate Otomatis. Contoh: 00001/FPKB-CTK/LOG/2026
   cabang        String // Tujuan / Unit kerja
   pic_nama      String // Nama yang minta
-  status        String // PENDING, APPROVED, PARTIALLY_FULFILLED, OUTSTANDING, REJECTED
+  status        StatusPermintaan @default(DRAFT) // Pakai Enum baru
   keterangan    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  details Permintaan_Detail[]
+  details      Permintaan_Detail[]
+  outstandings Permintaan_Outstanding[] // Relasi ke barang yang kurang (Outstanding)
 }
 
 model Permintaan_Detail {
@@ -113,12 +129,28 @@ model Permintaan_Detail {
   headerId      String
   barangId      String
   qty_diminta   Int // Jumlah yang direquest cabang
-  qty_disetujui Int     @default(0) // Jumlah yang sanggup dipenuhi gudang
-  status_item   String // PENDING, FULFILLED, OUTSTANDING
+  qty_disetujui Int     @default(0) // Jumlah yang disetujui SPV
+  status_item   StatusItem @default(OUTSTANDING) // Pakai Enum baru
   keterangan    String?
 
   header Permintaan_Header @relation(fields: [headerId], references: [id], onDelete: Cascade)
   barang Master_Barang     @relation(fields: [barangId], references: [id])
+}
+
+// --- TABEL BARU: OUTSTANDING ---
+model Permintaan_Outstanding {
+  id             String   @id @default(uuid())
+  headerId       String   // Nyambung ke Form FPP awal biar gampang dilacak utangnya
+  header         Permintaan_Header @relation(fields: [headerId], references: [id], onDelete: Cascade)
+  
+  barangId       String
+  barang         Master_Barang @relation(fields: [barangId], references: [id])
+  
+  qty_sisa       Int      // Sisa barang yang belum dikirim ke cabang
+  status         StatusItem @default(OUTSTANDING) // Kalau disusulin nanti, jadi FULFILLED
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 // --- MODUL FASE 5: SECURITY & AUTH ---
