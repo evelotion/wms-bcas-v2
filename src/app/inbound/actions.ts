@@ -71,20 +71,24 @@ export async function createInbound(formData: FormData) {
         }
       });
 
-      // 3. SMART TRIGGER OUTSTANDING
-      // Cek apakah ada cabang yang request barang ini dan statusnya belum terpenuhi
-      const outstandingReqs = await tx.permintaan_Header.findMany({
-        where: { status: 'OUTSTANDING' },
-        include: { details: { include: { barang: true } } }
+      // 3. SMART TRIGGER OUTSTANDING (SUDAH DIPERBAIKI SESUAI SCHEMA BARU)
+      // Cek langsung ke tabel histori Outstanding apakah barang ini lagi ditungguin
+      const outstandingReqs = await tx.permintaan_Outstanding.findMany({
+        where: { 
+          barangId: barangId, // Cek spesifik barang yang baru masuk ini aja
+          status: 'OUTSTANDING' 
+        },
+        include: { 
+          header: true,
+          barang: true
+        }
       });
 
-      for (const req of outstandingReqs) {
-        // Cari detail item yang ID barangnya cocok dan status itemnya masih OUTSTANDING
-        const isWaiting = req.details.some(d => d.barangId === barangId && d.status_item === 'OUTSTANDING');
-        
-        if (isWaiting) {
-          triggeredOutstandings.push(`▶️ ${req.cabang} (No. Request: ${req.nomor_request})`);
-        }
+      if (outstandingReqs.length > 0) {
+        outstandingReqs.forEach(req => {
+          // Sekarang manggil req.header.nomor_fpp dan ngasih tau kurangnya berapa
+          triggeredOutstandings.push(`▶️ ${req.header.cabang} (FPP: ${req.header.nomor_fpp}) - Kurang: ${req.qty_sisa} ${req.barang.satuan}`);
+        });
       }
     });
 
