@@ -28,3 +28,22 @@ export async function createMasterBarang(formData: FormData) {
     return { success: false, error: "Gagal membuat barang baru." };
   }
 }
+
+export async function updateMasterBarang(id: string, formData: FormData) {
+  try {
+    await prisma.master_Barang.update({
+      where: { id },
+      data: {
+        sku: formData.get("sku") as string,
+        nama: formData.get("nama") as string,
+        kategori: formData.get("kategori") as string,
+        satuan: formData.get("satuan") as string,
+        batas_minimum: Number(formData.get("batas_minimum")),
+      },
+    });
+    revalidatePath("/master");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: "Gagal mengupdate barang." };
+  }
+}

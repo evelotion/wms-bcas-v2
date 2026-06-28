@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getMasterBarang, createMasterBarang } from "./actions";
-import { Plus, Search, Package, ServerCrash, ChevronLeft, ChevronRight, X, Printer, Database } from "lucide-react";
+import { getMasterBarang, createMasterBarang, updateMasterBarang } from "./actions";
+import { Plus, Search, Package, ServerCrash, ChevronLeft, ChevronRight, X, Printer, Database, Edit } from "lucide-react";
 import DialogImport from "./DialogImport";
 
 export default function MasterBarangPage() {
@@ -10,6 +10,7 @@ export default function MasterBarangPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingItem, setEditingItem] = useState<any | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   // === TAMBAHAN UNTUK PAGINATION ===
@@ -42,17 +43,30 @@ export default function MasterBarangPage() {
   const nextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   const prevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
 
+  const handleOpenModal = (item: any | null = null) => {
+    setEditingItem(item);
+    setIsModalOpen(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
-    const res = await createMasterBarang(formData);
+    
+    let res;
+    if (editingItem) {
+      res = await updateMasterBarang(editingItem.id, formData);
+    } else {
+      res = await createMasterBarang(formData);
+    }
+
     if (res.success) {
-      alert("Barang baru berhasil ditambahkan!");
+      alert(editingItem ? "Barang berhasil diupdate!" : "Barang baru berhasil ditambahkan!");
       setIsModalOpen(false);
+      setEditingItem(null);
       fetchData();
     } else {
-      alert("Gagal menambahkan barang: " + (res.error || "Unknown error"));
+      alert("Gagal: " + (res.error || "Unknown error"));
     }
     setIsSubmitting(false);
   };
@@ -78,7 +92,7 @@ export default function MasterBarangPage() {
         <div className="flex items-center gap-3">
           <DialogImport onRefresh={fetchData} />
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => handleOpenModal()}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-blue-600/30"
           >
             <Plus size={18} /> Tambah Barang
@@ -133,7 +147,10 @@ export default function MasterBarangPage() {
                     <td className="px-6 py-4"><span className="bg-slate-200/70 text-slate-700 px-2 py-1 rounded-md text-xs">{item.kategori}</span></td>
                     <td className="px-6 py-4">{item.satuan}</td>
                     <td className="px-6 py-4 text-center font-bold text-slate-700">{item.batas_minimum}</td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-6 py-4 text-center flex items-center justify-center gap-1">
+                      <button onClick={() => handleOpenModal(item)} className="p-2 text-slate-500 hover:bg-blue-100 hover:text-blue-700 rounded-lg transition-colors" title="Edit Barang">
+                        <Edit size={18} />
+                      </button>
                       <button onClick={() => handlePrintBarcode(item)} className="p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-800 rounded-lg transition-colors" title="Cetak Barcode">
                         <Printer size={18} />
                       </button>
@@ -183,43 +200,43 @@ export default function MasterBarangPage() {
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <Package className="text-blue-600"/> Tambah Barang Baru
+                <Package className="text-blue-600"/> {editingItem ? 'Edit Barang' : 'Tambah Barang Baru'}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors"><X size={20}/></button>
+              <button onClick={() => { setIsModalOpen(false); setEditingItem(null); }} className="text-slate-400 hover:text-red-500 transition-colors"><X size={20}/></button>
             </div>
             
             <div className="p-6 overflow-y-auto no-scrollbar">
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">SKU (Kode Barang)</label>
-                  <input name="sku" type="text" required placeholder="Contoh: ATK-001" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+                  <input name="sku" type="text" required defaultValue={editingItem?.sku || ''} placeholder="Contoh: ATK-001" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nama Barang</label>
-                  <input name="nama" type="text" required placeholder="Contoh: Kertas A4 70gr" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+                  <input name="nama" type="text" required defaultValue={editingItem?.nama || ''} placeholder="Contoh: Kertas A4 70gr" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Kategori</label>
-                    <input name="kategori" type="text" required placeholder="Contoh: ATK" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+                    <input name="kategori" type="text" required defaultValue={editingItem?.kategori || ''} placeholder="Contoh: ATK" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Satuan</label>
-                    <input name="satuan" type="text" required placeholder="Contoh: Rim" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+                    <input name="satuan" type="text" required defaultValue={editingItem?.satuan || ''} placeholder="Contoh: Rim" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Batas Minimum Stok</label>
-                  <input name="batas_minimum" type="number" required defaultValue="0" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+                  <input name="batas_minimum" type="number" required defaultValue={editingItem?.batas_minimum || 0} className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
                   <p className="text-xs text-slate-400 mt-1">Sistem akan memberi notifikasi jika stok di bawah angka ini.</p>
                 </div>
 
                 <div className="pt-4 border-t border-slate-100 flex gap-3">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-3 border border-slate-300 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-colors">
+                  <button type="button" onClick={() => { setIsModalOpen(false); setEditingItem(null); }} className="flex-1 px-4 py-3 border border-slate-300 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-colors">
                     Batal
                   </button>
                   <button type="submit" disabled={isSubmitting} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex justify-center items-center gap-2 transition-all shadow-md shadow-blue-500/30 disabled:opacity-70">
-                    {isSubmitting ? "Menyimpan..." : "Simpan Barang"}
+                    {isSubmitting ? "Menyimpan..." : (editingItem ? "Update Barang" : "Simpan Barang")}
                   </button>
                 </div>
               </form>
