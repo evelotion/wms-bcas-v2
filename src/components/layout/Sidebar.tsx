@@ -1,11 +1,15 @@
 ﻿import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function Sidebar() {
+  const pathname = usePathname();
+
   const menuItems = [
     { name: "Dashboard", path: "/" },
     { name: "Master Barang", path: "/master" },
     { name: "Inbound (Masuk)", path: "/inbound" },
-    { name: "Outbound (Keluar)", path: "/outbound" },
+    { name: "Requisition", path: "/permintaan" },
+    { name: "Outstanding", path: "/outstanding" }, // Terpisah di sini
     { name: "Manajemen Rak", path: "/rak" },
   ];
 
@@ -20,15 +24,22 @@ export default function Sidebar() {
         </div>
         
         <nav className="flex flex-col gap-2">
-          {menuItems.map((item) => (
-            <Link 
-              key={item.name} 
-              href={item.path}
-              className="rounded-xl px-4 py-3 text-sm font-medium text-slate-600 transition-all hover:bg-white/50 hover:text-blue-700 hover:shadow-sm"
-            >
-              {item.name}
-            </Link>
-          ))}
+          {menuItems.map((item) => {
+            const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
+            return (
+              <Link 
+                key={item.name} 
+                href={item.path}
+                className={`rounded-xl px-4 py-3 text-sm font-medium transition-all ${
+                  isActive 
+                    ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 font-bold" 
+                    : "text-slate-600 hover:bg-white/50 hover:text-blue-700 hover:shadow-sm"
+                }`}
+              >
+                {item.name}
+              </Link>
+            )
+          })}
         </nav>
       </div>
 

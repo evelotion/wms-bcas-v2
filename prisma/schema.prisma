@@ -104,6 +104,7 @@ enum StatusItem {
   FULFILLED     // Dipenuhi 100%
   PARTIAL       // Dipenuhi sebagian, sisanya masuk outstanding
   OUTSTANDING   // 0% dipenuhi (stok kosong)
+  CANCELLED     // Dibatalkan permanen
 }
 
 // --- MODUL FASE 2: PERMINTAAN CABANG (REQUISITION) ---
@@ -129,7 +130,7 @@ model Permintaan_Detail {
   headerId      String
   barangId      String
   qty_diminta   Int // Jumlah yang direquest cabang
-  qty_disetujui Int     @default(0) // Jumlah yang disetujui SPV
+  qty_disetujui Int      @default(0) // Jumlah yang disetujui SPV
   status_item   StatusItem @default(OUTSTANDING) // Pakai Enum baru
   keterangan    String?
 

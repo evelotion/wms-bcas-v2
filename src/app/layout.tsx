@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Database, ArrowDownToLine, ArrowUpRightFromSquare, FileQuestion, FileText, Package2, Bell, Search, LogOut } from "lucide-react"; // Tambah LogOut
+import { LayoutDashboard, Database, ArrowDownToLine, ArrowUpRightFromSquare, FileQuestion, FileText, Package2, Bell, Search, LogOut, Archive } from "lucide-react";
 import { logoutUser } from "@/app/login/actions"; // Sesuaikan path actions lo
 
 const inter = Inter({ subsets: ["latin"] });
@@ -19,8 +19,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     { name: "Dashboard", icon: LayoutDashboard, path: "/" },
     { name: "Master Barang", icon: Database, path: "/master" },
     { name: "Inbound (Masuk)", icon: ArrowDownToLine, path: "/inbound" },
-    { name: "Outbound (Keluar)", icon: ArrowUpRightFromSquare, path: "/outbound" },
     { name: "Requisition", icon: FileQuestion, path: "/permintaan" },
+    { name: "Outstanding", icon: Archive, path: "/outstanding" }, // <--- INI BARU DITAMBAHIN
     { name: "Laporan", icon: FileText, path: "/laporan" },
   ];
 
@@ -92,7 +92,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-6 md:p-10 no-scrollbar">{children}</div>
+          {/* AREA KONTEN & FOOTER */}
+          <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col">
+            <div className="p-6 md:p-10 flex-1">
+              {children}
+            </div>
+            
+            {/* FOOTER GELAP */}
+            <footer className="bg-white border-t border-slate-200 text-slate-500 py-5 px-8 mt-auto flex flex-col sm:flex-row justify-between items-center gap-2">
+              <p className="text-xs">© 2026 GudangSync V2. All rights reserved.</p>
+              <p className="text-xs font-medium text-slate-600">BCA Syariah - Logistik & Asset</p>
+            </footer>
+          </div>
         </main>
       </body>
     </html>

@@ -14,6 +14,7 @@ export default function LaporanPage() {
   const getBulanOptions = () => {
     const options = [];
     const date = new Date();
+    date.setDate(1); // Set ke tanggal 1 untuk menghindari bug lompat bulan
     for (let i = 0; i < 6; i++) {
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const year = date.getFullYear();
