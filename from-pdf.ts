@@ -1,8 +1,7 @@
-import { PrismaClient, Master_Barang, StatusPermintaan, Prisma } from '@prisma/client';
+import { Master_Barang, StatusPermintaan, Prisma } from '@prisma/client';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { z } from 'zod';
-
-const prisma = new PrismaClient();
+import { prisma } from './prisma';
 
 // Schema validasi menggunakan Zod. Ini menjadi satu-satunya sumber kebenaran (single source of truth)
 // untuk bentuk data dan tipenya.
@@ -59,7 +58,7 @@ export default async function handler(
 
     // Buat Map untuk pencarian cepat (O(1) lookup)
     const barangMap = new Map<string, Master_Barang>(
-      foundBarang.map((b) => [b.sku, b])
+      foundBarang.map((b: Master_Barang) => [b.sku, b])
     );
 
     const permintaanDetailsData = [];
