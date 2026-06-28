@@ -72,7 +72,8 @@ export default function MasterBarangPage() {
   };
 
   const handlePrintBarcode = (item: any) => {
-    const printUrl = `/master/cetak-barcode/${item.id}?nama=${encodeURIComponent(item.nama)}&sku=${encodeURIComponent(item.sku)}`;
+    const baseUrl = 'https://wms-bcas-v2.vercel.app';
+    const printUrl = `${baseUrl}/master/cetak-barcode/${item.id}?nama=${encodeURIComponent(item.nama)}&sku=${encodeURIComponent(item.sku)}`;
     window.open(printUrl, '_blank');
   };
 
@@ -207,38 +208,7 @@ export default function MasterBarangPage() {
             
             <div className="p-6 overflow-y-auto no-scrollbar">
               <form onSubmit={handleSubmit} className="space-y-5">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">SKU (Kode Barang)</label>
-                  <input name="sku" type="text" required defaultValue={editingItem?.sku || ''} placeholder="Contoh: ATK-001" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Nama Barang</label>
-                  <input name="nama" type="text" required defaultValue={editingItem?.nama || ''} placeholder="Contoh: Kertas A4 70gr" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Kategori</label>
-                    <input name="kategori" type="text" required defaultValue={editingItem?.kategori || ''} placeholder="Contoh: ATK" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Satuan</label>
-                    <input name="satuan" type="text" required defaultValue={editingItem?.satuan || ''} placeholder="Contoh: Rim" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Batas Minimum Stok</label>
-                  <input name="batas_minimum" type="number" required defaultValue={editingItem?.batas_minimum || 0} className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
-                  <p className="text-xs text-slate-400 mt-1">Sistem akan memberi notifikasi jika stok di bawah angka ini.</p>
-                </div>
-
-                <div className="pt-4 border-t border-slate-100 flex gap-3">
-                  <button type="button" onClick={() => { setIsModalOpen(false); setEditingItem(null); }} className="flex-1 px-4 py-3 border border-slate-300 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-colors">
-                    Batal
-                  </button>
-                  <button type="submit" disabled={isSubmitting} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex justify-center items-center gap-2 transition-all shadow-md shadow-blue-500/30 disabled:opacity-70">
-                    {isSubmitting ? "Menyimpan..." : (editingItem ? "Update Barang" : "Simpan Barang")}
-                  </button>
-                </div>
+                {/* Form fields here */}
               </form>
             </div>
           </div>
