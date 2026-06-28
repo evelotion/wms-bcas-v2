@@ -44,8 +44,9 @@ model Batch_Barang {
 
   // Data spesifik per batch penerimaan
   supplier  String?
-  nomorator String?
-
+  nomorator_awal  String?
+  nomorator_akhir String?
+  
   status    StatusBatch @default(AVAILABLE) // AVAILABLE, QUARANTINE, DEPLETED
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
