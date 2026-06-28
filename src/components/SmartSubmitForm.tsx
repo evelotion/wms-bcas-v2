@@ -1,14 +1,13 @@
 'use client';
 
-// Impor hook dan tipe data yang dibutuhkan
-import { useSmartSubmit, type PermintaanHeader } from './useSmartSubmit'; // Sesuaikan path jika perlu
+// FIX: Path diarahkan ke folder hooks yang baru
+import { useSmartSubmit, type PermintaanHeader } from '../hooks/useSmartSubmit';
 
 interface SmartSubmitFormProps {
-  onUploadSuccess: (data: PermintaanHeader) => void; // Callback untuk refresh data di parent
+  onUploadSuccess: (data: PermintaanHeader) => void;
 }
 
 export default function SmartSubmitForm({ onUploadSuccess }: SmartSubmitFormProps) {
-  // Semua state dan logic sekarang datang dari satu hook. Bersih!
   const {
     fileInputRef,
     file,
@@ -20,24 +19,24 @@ export default function SmartSubmitForm({ onUploadSuccess }: SmartSubmitFormProp
   } = useSmartSubmit(onUploadSuccess);
 
   return (
-    <div className="p-4 border rounded-lg bg-gray-50 mb-6">
-      <h3 className="text-lg font-semibold mb-2">Smart Submit (Upload FPP)</h3>
+    <div className="p-4 border border-slate-200 rounded-xl bg-slate-50 mb-6">
+      <h3 className="text-lg font-bold text-slate-800 mb-2">Smart Submit (Upload FPP PDF)</h3>
       <form onSubmit={handleSubmit}>
-        <label className="block mb-2 text-sm font-medium text-gray-900" htmlFor="file_input">Upload file</label>
+        <label className="block mb-2 text-sm font-medium text-slate-600" htmlFor="file_input">Upload file FPP (Format PDF)</label>
         <input
           ref={fileInputRef}
           id="file_input"
           type="file"
           accept="application/pdf"
           onChange={handleFileChange}
-          className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none mb-4"
+          className="block w-full text-sm text-slate-700 border border-slate-300 rounded-lg cursor-pointer bg-white focus:outline-none mb-4 file:mr-4 file:py-2 file:px-4 file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
         />
 
-        <button type="submit" disabled={isLoading || !file} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400">
-          {isLoading ? 'Memproses...' : 'Upload & Submit'}
+        <button type="submit" disabled={isLoading || !file} className="px-4 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:bg-slate-400">
+          {isLoading ? 'Memproses dengan AI...' : 'Upload & Submit'}
         </button>
-        {successMessage && <p className="text-green-600 mt-2">{successMessage}</p>}
-        {error && <p className="text-red-600 mt-2">{error}</p>}
+        {successMessage && <p className="text-emerald-600 font-medium text-sm mt-3">{successMessage}</p>}
+        {error && <p className="text-red-600 font-medium text-sm mt-3">{error}</p>}
       </form>
     </div>
   );

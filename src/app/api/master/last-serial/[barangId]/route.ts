@@ -1,4 +1,4 @@
-import { prisma } from '@/prisma';
+import prisma from '../../../../../lib/prisma'; // Sesuaikan kembali ke '@/lib/prisma' kalau relative path ini udah nggak perlu
 import { NextResponse } from 'next/server';
 
 export async function GET(
@@ -15,20 +15,21 @@ export async function GET(
     const lastBatch = await prisma.batch_Barang.findFirst({
       where: {
         barangId: barangId,
-        nomorator_akhir: {
-          not: null, // Hanya cari batch yang punya nomorator
+        // PERBAIKAN: Pakai kolom 'nomorator' sesuai dengan yang ada di schema.prisma lo
+        nomorator: {
+          not: null, 
         },
       },
       orderBy: {
-        tanggal_masuk: 'desc', // Ambil batch yang paling baru masuk
+        tanggal_masuk: 'desc', 
       },
       select: {
-        nomorator_akhir: true,
+        nomorator: true, // PERBAIKAN DI SINI JUGA
       },
     });
 
     return NextResponse.json({
-      last_serial: lastBatch?.nomorator_akhir || null,
+      last_serial: lastBatch?.nomorator || null, // DAN DI SINI
     });
 
   } catch (error) {
