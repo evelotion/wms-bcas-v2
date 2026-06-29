@@ -36,12 +36,7 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-<<<<<<< HEAD
   "exclude": [
     "node_modules"
   ]
 }
-=======
-  "exclude": ["node_modules", "prisma/seed-stock-awal.ts", "prisma/seed.ts"]
-}
->>>>>>> 23bb1bf36ee2eccc18768a8143ec1991a9afd5d9

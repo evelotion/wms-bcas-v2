@@ -166,7 +166,7 @@ export default function RequisitionPage() {
     if (res.success) {
       alert("✅ Dokumen FPP berhasil disimpan sebagai DRAFT!");
       setIsModalOpen(false);
-      setFppItems([{ barangId: "", qty: 1 }]); // Reset form
+      setFppItems([{ barangId: "", qty: 1, satuan: "" }]); // Reset form
       fetchData();
     } else {
       alert("❌ " + res.error);
