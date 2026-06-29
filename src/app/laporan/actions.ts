@@ -18,7 +18,8 @@ export async function getLaporanData(bulan: string) {
     orderBy: { nama: 'asc' }
   });
   
-  const persediaan = masterBarang.map(b => ({
+  type BarangWithBatches = (typeof masterBarang)[number];
+  const persediaan = masterBarang.map((b: BarangWithBatches) => ({
     "Kode / SKU": b.sku,
     "Nama Barang": b.nama,
     "Satuan": b.satuan,
