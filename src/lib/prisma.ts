@@ -1,25 +1,14 @@
-// src/lib/prisma.ts
-import { PrismaClient } from "@prisma/client";
-import { Pool } from "pg";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from '@prisma/client';
 
-const prismaClientSingleton = () => {
-  const connectionString = process.env.DATABASE_URL;
-  // Inisialisasi koneksi pool ke Neon DB
-  const pool = new Pool({ connectionString });
-  // Bungkus pakai adapter resmi Prisma
-  const adapter = new PrismaPg(pool);
-  
-  // Inject adapter ke dalam Prisma Client
-  return new PrismaClient({ adapter });
-};
+const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-declare global {
-  var prismaGlobal: undefined | ReturnType<typeof prismaClientSingleton>;
-}
+export const prisma =
+  globalForPrisma.prisma ||
+  new PrismaClient({
+    // Di versi 7, kalau pake config file, kita nggak perlu masukin url lagi di sini
+    // karena udah di-handle otomatis lewat prisma.config.ts
+  });
 
-const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
 export default prisma;
-
-if (process.env.NODE_ENV !== "production") globalThis.prismaGlobal = prisma;
