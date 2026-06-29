@@ -43,7 +43,7 @@ export async function createInbound(formData: FormData) {
 
     let triggeredOutstandings: string[] = [];
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       // 1. Generate Batch Baru (Sekarang nyimpen Supplier & Nomorator)
       const batch = await tx.batch_Barang.create({
         data: {
