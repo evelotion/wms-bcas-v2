@@ -12,7 +12,7 @@ export async function getLaporanData(bulan: string) {
     dateFilter = { createdAt: { gte: startDate, lte: endDate } };
   }
 
-  // 1. Laporan Stok Terkini (Selalu Real-time dari akumulasi Batch)
+  // 1. Laporan Stok Terkini
   const masterBarang = await prisma.master_Barang.findMany({
     include: { batches: true },
     orderBy: { nama: 'asc' }
@@ -26,7 +26,7 @@ export async function getLaporanData(bulan: string) {
     "Sisa Stok Terkini": b.batches.reduce((sum, batch) => sum + batch.qty_sisa, 0),
   }));
 
-  // 2. Laporan Barang Masuk (INBOUND Ledger)
+  // 2. Laporan Barang Masuk (INBOUND)
   const riwayatMasuk = await prisma.mutasi_Ledger.findMany({
     where: { tipe_mutasi: 'INBOUND', ...dateFilter },
     include: { batch: { include: { barang: true } } },
@@ -40,11 +40,11 @@ export async function getLaporanData(bulan: string) {
     "Qty Masuk": m.qty_perubahan,
     "Referensi / PO": m.referensi,
     "Supplier": m.batch.supplier || '-',
-    "Nomorator / Seri": m.batch.nomorator || '-',
+    "Nomorator / Seri": m.batch.nomorator || '-', // <-- INI YANG BIKIN ERROR SEBELUMNYA
     "Keterangan": m.keterangan || '-'
   }));
 
-  // 3. Laporan Barang Keluar (OUTBOUND Ledger)
+  // 3. Laporan Barang Keluar (OUTBOUND)
   const riwayatKeluar = await prisma.mutasi_Ledger.findMany({
     where: { tipe_mutasi: 'OUTBOUND', ...dateFilter },
     include: { batch: { include: { barang: true } } },
@@ -55,7 +55,7 @@ export async function getLaporanData(bulan: string) {
     "Tanggal Keluar": m.createdAt.toLocaleString('id-ID'),
     "Kode / SKU": m.batch.barang.sku,
     "Nama Barang": m.batch.barang.nama,
-    "Qty Keluar": Math.abs(m.qty_perubahan), // Di-absolutkan karena di DB nyimpen negatif
+    "Qty Keluar": Math.abs(m.qty_perubahan),
     "Tujuan / Referensi FPKB": m.referensi,
     "Keterangan": m.keterangan || '-',
     "Batch Pengurang": m.batch.tanggal_masuk.toLocaleDateString('id-ID')
