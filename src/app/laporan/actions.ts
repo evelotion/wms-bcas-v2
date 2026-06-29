@@ -18,13 +18,12 @@ export async function getLaporanData(bulan: string) {
     orderBy: { nama: 'asc' }
   });
   
-  type BarangWithBatches = (typeof masterBarang)[number];
-  const persediaan = masterBarang.map((b: BarangWithBatches) => ({
+  const persediaan = masterBarang.map((b: any) => ({
     "Kode / SKU": b.sku,
     "Nama Barang": b.nama,
     "Satuan": b.satuan,
     "Batas Minimum": b.batas_minimum,
-    "Sisa Stok Terkini": b.batches.reduce((sum: number, batch) => sum + batch.qty_sisa, 0),
+    "Sisa Stok Terkini": b.batches.reduce((sum: number, batch: any) => sum + batch.qty_sisa, 0),
   }));
 
   // 2. Laporan Barang Masuk (INBOUND)
@@ -34,14 +33,14 @@ export async function getLaporanData(bulan: string) {
     orderBy: { createdAt: 'desc' }
   });
 
-  const laporanMasuk = riwayatMasuk.map(m => ({
+  const laporanMasuk = riwayatMasuk.map((m: any) => ({
     "Tanggal Masuk": m.createdAt.toLocaleString('id-ID'),
     "Kode / SKU": m.batch.barang.sku,
     "Nama Barang": m.batch.barang.nama,
     "Qty Masuk": m.qty_perubahan,
     "Referensi / PO": m.referensi,
     "Supplier": m.batch.supplier || '-',
-    "Nomorator / Seri": m.batch.nomorator || '-', // <-- INI YANG BIKIN ERROR SEBELUMNYA
+    "Nomorator / Seri": m.batch.nomorator || '-',
     "Keterangan": m.keterangan || '-'
   }));
 
@@ -52,7 +51,7 @@ export async function getLaporanData(bulan: string) {
     orderBy: { createdAt: 'desc' }
   });
 
-  const laporanKeluar = riwayatKeluar.map(m => ({
+  const laporanKeluar = riwayatKeluar.map((m: any) => ({
     "Tanggal Keluar": m.createdAt.toLocaleString('id-ID'),
     "Kode / SKU": m.batch.barang.sku,
     "Nama Barang": m.batch.barang.nama,

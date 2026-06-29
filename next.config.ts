@@ -9,8 +9,13 @@ const withPWA = withPWAInit({
 });
 
 const nextConfig = {
-  // Tambahkan baris ini buat membungkam error Turbopack
-  turbopack: {}, 
+  output: "export" as const,
+  distDir: "out",
+  turbopack: {},
+  webpack: (config: any, { isServer }: { isServer: boolean }) => {
+    if (!isServer) config.resolve.fallback = { fs: false, path: false };
+    return config;
+  },
 };
 
 export default withPWA(nextConfig);

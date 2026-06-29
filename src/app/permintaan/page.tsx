@@ -25,7 +25,7 @@ export default function RequisitionPage() {
   // === STATE UNTUK MODAL INPUT FPP BARU ===
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [fppItems, setFppItems] = useState([{ barangId: "", qty: 1 }]);
+  const [fppItems, setFppItems] = useState([{ barangId: "", qty: 1, satuan: "" }]);
 
   useEffect(() => {
     fetchData();
@@ -116,7 +116,7 @@ export default function RequisitionPage() {
 
   // --- LOGIC SUBMIT FPP BARU ---
   const handleAddFppItem = () => {
-    setFppItems([...fppItems, { barangId: "", qty: 1 }]);
+    setFppItems([...fppItems, { barangId: "", qty: 1, satuan: "" }]);
   };
 
   const handleRemoveFppItem = (index: number) => {
@@ -125,7 +125,12 @@ export default function RequisitionPage() {
 
   const handleFppItemChange = (index: number, field: string, value: any) => {
     const newItems = [...fppItems];
-    newItems[index] = { ...newItems[index], [field]: value };
+    if (field === "barangId") {
+      const found = masterBarang.find(b => b.id === value);
+      newItems[index] = { ...newItems[index], barangId: value, satuan: found?.satuan || "" };
+    } else {
+      newItems[index] = { ...newItems[index], [field]: value };
+    }
     setFppItems(newItems);
   };
 
@@ -151,7 +156,7 @@ export default function RequisitionPage() {
     if (res.success) {
       alert("✅ Dokumen FPP berhasil disimpan sebagai DRAFT!");
       setIsModalOpen(false);
-      setFppItems([{ barangId: "", qty: 1 }]);
+      setFppItems([{ barangId: "", qty: 1, satuan: "" }]);
       fetchData();
     } else {
       alert("❌ " + res.error);
@@ -357,15 +362,20 @@ export default function RequisitionPage() {
                             placeholder="Ketik SKU atau Nama Barang..."
                           />
                         </div>
-                        <div className="w-24 shrink-0">
+                        <div className="flex items-center gap-1 shrink-0">
                           <input
                             type="number"
                             min="1"
                             value={item.qty}
                             onChange={(e) => handleFppItemChange(index, "qty", parseInt(e.target.value) || 1)}
-                            className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm text-center font-bold"
+                            className="w-20 border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm text-center font-bold"
                             required
                           />
+                          {item.satuan && (
+                            <span className="text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-1.5 rounded-lg whitespace-nowrap">
+                              {item.satuan}
+                            </span>
+                          )}
                         </div>
                         {fppItems.length > 1 && (
                           <button type="button" onClick={() => handleRemoveFppItem(index)} className="shrink-0 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
