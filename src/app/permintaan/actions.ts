@@ -35,7 +35,7 @@ export async function approvePermintaan(
     let instruksi: string[] = [];
     let rawDetails: any[] = [];
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       const header = await tx.permintaan_Header.findUnique({
         where: { id: headerId },
         include: { details: { include: { barang: true } } }
