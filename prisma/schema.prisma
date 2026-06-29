@@ -43,9 +43,8 @@ model Batch_Barang {
   harga_satuan  Float
 
   // Data spesifik per batch penerimaan
-  supplier  String?
-  nomorator_awal  String?
-  nomorator_akhir String?
+supplier  String?
+  nomorator String?
   
   status    StatusBatch @default(AVAILABLE) // AVAILABLE, QUARANTINE, DEPLETED
   createdAt DateTime @default(now())
