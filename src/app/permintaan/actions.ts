@@ -159,7 +159,7 @@ export async function fulfillOutstanding(outstandingId: string, qtyFulfill: numb
     let rawDetails: any[] = [];
     let instruksi: string[] = [];
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       const outstanding = await tx.permintaan_Outstanding.findUnique({
         where: { id: outstandingId },
         include: { barang: true, header: true }
