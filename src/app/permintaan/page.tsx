@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { getDaftarPermintaan, approvePermintaan, getPermintaanFormData, createFppBaru } from "./actions";
 import { generateFPKB } from "@/lib/generateFpkb"; 
-import { ClipboardList, CheckCircle, Clock, FilePlus, Trash2, Edit3, ChevronDown, ChevronUp, Plus, X, Save } from "lucide-react";
+import { ClipboardList, CircleCheck as CheckCircle, Clock, FilePlus, Trash2, CreditCard as Edit3, ChevronDown, ChevronUp, Plus, X, Save } from "lucide-react";
 import SearchableSelect from "@/components/SearchableSelect"; 
 
 export default function RequisitionPage() {
@@ -19,7 +19,7 @@ export default function RequisitionPage() {
   // === STATE UNTUK MODAL INPUT FPP BARU ===
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [fppItems, setFppItems] = useState([{ barangId: "", qty: 1 }]);
+  const [fppItems, setFppItems] = useState([{ barangId: "", qty: 1, satuan: "" }]);
 
   useEffect(() => {
     fetchData();
@@ -107,7 +107,7 @@ export default function RequisitionPage() {
 
   // --- LOGIC SUBMIT FPP BARU ---
   const handleAddFppItem = () => {
-    setFppItems([...fppItems, { barangId: "", qty: 1 }]);
+    setFppItems([...fppItems, { barangId: "", qty: 1, satuan: "" }]);
   };
 
   const handleRemoveFppItem = (index: number) => {
@@ -117,6 +117,15 @@ export default function RequisitionPage() {
   const handleFppItemChange = (index: number, field: string, value: any) => {
     const newItems = [...fppItems];
     newItems[index] = { ...newItems[index], [field]: value };
+
+    // Kalau yg diubah adalah barangId, update satuan juga
+    if (field === "barangId" && value) {
+      const selectedBarang = masterBarang.find((b: any) => b.id === value);
+      if (selectedBarang) {
+        newItems[index].satuan = selectedBarang.satuan || "";
+      }
+    }
+
     setFppItems(newItems);
   };
 
@@ -143,7 +152,7 @@ export default function RequisitionPage() {
     if (res.success) {
       alert("✅ Dokumen FPP berhasil disimpan sebagai DRAFT!");
       setIsModalOpen(false);
-      setFppItems([{ barangId: "", qty: 1 }]); // Reset form
+      setFppItems([{ barangId: "", qty: 1, satuan: "" }]); // Reset form
       fetchData();
     } else {
       alert("❌ " + res.error);
@@ -342,15 +351,20 @@ export default function RequisitionPage() {
                             className="z-20"
                           />
                         </div>
-                        <div className="w-24 shrink-0">
-                          <input 
-                            type="number" 
-                            min="1"
-                            value={item.qty}
-                            onChange={(e) => handleFppItemChange(index, "qty", parseInt(e.target.value) || 1)}
-                            className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm text-center font-bold"
-                            required
-                          />
+                        <div className="flex items-center gap-1 shrink-0">
+                          <div className="w-20">
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.qty}
+                              onChange={(e) => handleFppItemChange(index, "qty", parseInt(e.target.value) || 1)}
+                              className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm text-center font-bold"
+                              required
+                            />
+                          </div>
+                          <div className="w-16 px-2 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-600 text-center font-medium">
+                            {item.satuan || "Pcs"}
+                          </div>
                         </div>
                         {fppItems.length > 1 && (
                           <button type="button" onClick={() => handleRemoveFppItem(index)} className="shrink-0 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
