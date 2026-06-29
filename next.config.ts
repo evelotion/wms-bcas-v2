@@ -8,9 +8,8 @@ const withPWA = withPWAInit({
   disable: process.env.NODE_ENV === "development",
 });
 
-const nextConfig: NextConfig = {
-  // kosongin aja, atau biarin config lain yang bukan 'output: export'
+const nextConfig = {
+  // Pastikan tidak ada 'output: export' di sini
 };
 
 export default withPWA(nextConfig);
-export default nextConfig;
