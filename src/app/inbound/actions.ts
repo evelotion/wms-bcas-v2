@@ -23,7 +23,7 @@ export async function getRecentInbound() {
       }
     },
     orderBy: { createdAt: 'desc' },
-    take: 10,
+    // take: 10 <--- INI KITA HAPUS BIAR PAGINATION DI UI BERFUNGSI
   });
 }
 
@@ -54,7 +54,7 @@ export async function createInbound(formData: FormData) {
           qty_sisa: qty,
           status: 'AVAILABLE',
           supplier: supplier || null,
-          nomorator_akhir: nomorator || null,
+          nomorator: nomorator || null,
         }
       });
 
@@ -71,11 +71,10 @@ export async function createInbound(formData: FormData) {
         }
       });
 
-      // 3. SMART TRIGGER OUTSTANDING (SUDAH DIPERBAIKI SESUAI SCHEMA BARU)
-      // Cek langsung ke tabel histori Outstanding apakah barang ini lagi ditungguin
+      // 3. SMART TRIGGER OUTSTANDING
       const outstandingReqs = await tx.permintaan_Outstanding.findMany({
         where: { 
-          barangId: barangId, // Cek spesifik barang yang baru masuk ini aja
+          barangId: barangId, 
           status: 'OUTSTANDING' 
         },
         include: { 
@@ -86,14 +85,13 @@ export async function createInbound(formData: FormData) {
 
       if (outstandingReqs.length > 0) {
         outstandingReqs.forEach(req => {
-          // Sekarang manggil req.header.nomor_fpp dan ngasih tau kurangnya berapa
           triggeredOutstandings.push(`▶️ ${req.header.cabang} (FPP: ${req.header.nomor_fpp}) - Kurang: ${req.qty_sisa} ${req.barang.satuan}`);
         });
       }
     });
 
     revalidatePath("/inbound");
-    revalidatePath("/permintaan"); // Update data di halaman permintaan juga
+    revalidatePath("/permintaan"); 
     
     return { success: true, triggeredOutstandings };
   } catch (error: any) {
