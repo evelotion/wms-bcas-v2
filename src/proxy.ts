@@ -1,8 +1,8 @@
-// src/middleware.ts
+// src/proxy.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // Ambil tiket/cookie sesi dari browser
   const session = request.cookies.get('wms_session');
   

@@ -10,6 +10,7 @@ const withPWA = withPWAInit({
 
 const nextConfig = {
   // Pastikan tidak ada 'output: export' di sini
+  turbopack: {},
 };
 
 export default withPWA(nextConfig);
