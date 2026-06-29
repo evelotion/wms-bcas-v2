@@ -15,7 +15,7 @@ export async function importDataAwal(formattedData: any[]) {
 
     let successCount = 0;
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       for (const item of formattedData) {
         if (item.stok <= 0) continue; // Abaikan barang yang stoknya 0 di PRN
 

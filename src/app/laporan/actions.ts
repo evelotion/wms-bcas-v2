@@ -12,28 +12,28 @@ export async function getLaporanData(bulan: string) {
     dateFilter = { createdAt: { gte: startDate, lte: endDate } };
   }
 
-  // 1. Laporan Stok Terkini (Selalu Real-time dari akumulasi Batch)
+  // 1. Laporan Stok Terkini
   const masterBarang = await prisma.master_Barang.findMany({
     include: { batches: true },
     orderBy: { nama: 'asc' }
   });
   
-  const persediaan = masterBarang.map(b => ({
+  const persediaan = masterBarang.map((b: any) => ({
     "Kode / SKU": b.sku,
     "Nama Barang": b.nama,
     "Satuan": b.satuan,
     "Batas Minimum": b.batas_minimum,
-    "Sisa Stok Terkini": b.batches.reduce((sum, batch) => sum + batch.qty_sisa, 0),
+    "Sisa Stok Terkini": b.batches.reduce((sum: number, batch: any) => sum + batch.qty_sisa, 0),
   }));
 
-  // 2. Laporan Barang Masuk (INBOUND Ledger)
+  // 2. Laporan Barang Masuk (INBOUND)
   const riwayatMasuk = await prisma.mutasi_Ledger.findMany({
     where: { tipe_mutasi: 'INBOUND', ...dateFilter },
     include: { batch: { include: { barang: true } } },
     orderBy: { createdAt: 'desc' }
   });
 
-  const laporanMasuk = riwayatMasuk.map(m => ({
+  const laporanMasuk = riwayatMasuk.map((m: any) => ({
     "Tanggal Masuk": m.createdAt.toLocaleString('id-ID'),
     "Kode / SKU": m.batch.barang.sku,
     "Nama Barang": m.batch.barang.nama,
@@ -44,18 +44,18 @@ export async function getLaporanData(bulan: string) {
     "Keterangan": m.keterangan || '-'
   }));
 
-  // 3. Laporan Barang Keluar (OUTBOUND Ledger)
+  // 3. Laporan Barang Keluar (OUTBOUND)
   const riwayatKeluar = await prisma.mutasi_Ledger.findMany({
     where: { tipe_mutasi: 'OUTBOUND', ...dateFilter },
     include: { batch: { include: { barang: true } } },
     orderBy: { createdAt: 'desc' }
   });
 
-  const laporanKeluar = riwayatKeluar.map(m => ({
+  const laporanKeluar = riwayatKeluar.map((m: any) => ({
     "Tanggal Keluar": m.createdAt.toLocaleString('id-ID'),
     "Kode / SKU": m.batch.barang.sku,
     "Nama Barang": m.batch.barang.nama,
-    "Qty Keluar": Math.abs(m.qty_perubahan), // Di-absolutkan karena di DB nyimpen negatif
+    "Qty Keluar": Math.abs(m.qty_perubahan),
     "Tujuan / Referensi FPKB": m.referensi,
     "Keterangan": m.keterangan || '-',
     "Batch Pengurang": m.batch.tanggal_masuk.toLocaleDateString('id-ID')

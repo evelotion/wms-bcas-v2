@@ -34,7 +34,6 @@ export default function MasterBarangPage() {
     item.nama.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // === LOGIC PAGINATION ===
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredItems.slice(indexOfFirstItem, indexOfLastItem);
@@ -78,7 +77,7 @@ export default function MasterBarangPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="w-full space-y-6 pb-10"> {/* FIX: w-full biar nggak sempit */}
       {/* Header Section */}
       <div className="glass-panel p-6 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-l-4 border-l-blue-500">
         <div className="flex items-center gap-3">
@@ -195,7 +194,7 @@ export default function MasterBarangPage() {
         )}
       </div>
 
-      {/* Modal Form */}
+      {/* Modal Form FIX (Udah ada form input-nya) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
@@ -208,7 +207,42 @@ export default function MasterBarangPage() {
             
             <div className="p-6 overflow-y-auto no-scrollbar">
               <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Form fields here */}
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">SKU / Kode Barang</label>
+                  <input name="sku" type="text" required defaultValue={editingItem?.sku || ""} placeholder="Contoh: ATK-001" className="w-full border border-slate-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Nama Barang</label>
+                  <input name="nama" type="text" required defaultValue={editingItem?.nama || ""} placeholder="Contoh: Kertas HVS A4" className="w-full border border-slate-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Kategori</label>
+                    <input name="kategori" type="text" required defaultValue={editingItem?.kategori || ""} placeholder="Contoh: ATK" className="w-full border border-slate-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Satuan</label>
+                    <input name="satuan" type="text" required defaultValue={editingItem?.satuan || ""} placeholder="Contoh: Rim" className="w-full border border-slate-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Batas Minimum Stok</label>
+                  <input name="batas_minimum" type="number" min="0" required defaultValue={editingItem?.batas_minimum || "0"} className="w-full border border-slate-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+                </div>
+                
+                <div className="pt-4 flex gap-3">
+                  <button type="button" onClick={() => { setIsModalOpen(false); setEditingItem(null); }} className="flex-1 px-4 py-3 border border-slate-300 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-colors">
+                    Batal
+                  </button>
+                  <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors disabled:opacity-70 shadow-lg shadow-blue-600/30">
+                    {isSubmitting ? "Menyimpan..." : (editingItem ? "Update Barang" : "Simpan Barang")}
+                  </button>
+                </div>
+                
               </form>
             </div>
           </div>

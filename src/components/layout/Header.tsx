@@ -1,4 +1,4 @@
-﻿export default function Header() {
+export default function Header() {
   return (
     <header className="glass-panel sticky top-0 z-50 flex h-16 w-full items-center justify-between px-6">
       <div className="flex items-center gap-4">

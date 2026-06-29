@@ -22,6 +22,8 @@ export default function SearchableSelect({ name, options, value, onChange, place
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({});
 
   const selectedOption = options.find(opt => opt.id === value);
 
@@ -35,6 +37,43 @@ export default function SearchableSelect({ name, options, value, onChange, place
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [wrapperRef]);
 
+  // Position the dropdown panel with fixed coords so it escapes overflow-clipped ancestors
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPanelStyle({
+        position: "fixed",
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+        zIndex: 9999,
+      });
+    }
+  }, [isOpen]);
+
+  // Keep panel aligned on scroll/resize while open
+  useEffect(() => {
+    if (!isOpen) return;
+    const update = () => {
+      if (buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        setPanelStyle({
+          position: "fixed",
+          top: rect.bottom + 4,
+          left: rect.left,
+          width: rect.width,
+          zIndex: 9999,
+        });
+      }
+    };
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [isOpen]);
+
   const filteredOptions = options.filter(opt =>
     opt.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (opt.sku && opt.sku.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -43,13 +82,13 @@ export default function SearchableSelect({ name, options, value, onChange, place
   return (
     <div className={`relative ${className}`} ref={wrapperRef}>
       <input type="hidden" name={name} value={value} />
-      <button type="button" onClick={() => setIsOpen(!isOpen)} className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-left bg-white focus:ring-2 focus:ring-emerald-500 outline-none text-sm flex justify-between items-center">
+      <button ref={buttonRef} type="button" onClick={() => setIsOpen(!isOpen)} className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-left bg-white focus:ring-2 focus:ring-emerald-500 outline-none text-sm flex justify-between items-center">
         {selectedOption ? `[${selectedOption.sku}] ${selectedOption.label}` : <span className="text-slate-400">{placeholder}</span>}
         <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
       {isOpen && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-          <div className="p-2">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto" style={panelStyle}>
+          <div className="p-2 sticky top-0 bg-white">
             <input
               type="text"
               placeholder="Cari..."

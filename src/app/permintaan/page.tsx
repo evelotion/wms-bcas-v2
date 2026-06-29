@@ -1,39 +1,20 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import {
-  getDaftarPermintaan,
-  approvePermintaan,
-  getPermintaanFormData,
-  createFppBaru,
-} from "./actions";
-import { Prisma } from "@prisma/client";
-import { generateFPKB } from "@/lib/generateFpkb";
-import {
-  ClipboardList,
-  CheckCircle,
-  Clock,
-  FilePlus,
-  Trash2,
-  Edit3,
-  ChevronDown,
-  ChevronUp,
-  Plus,
-  X,
-  Save,
-  Search,
-} from "lucide-react";
-import SearchableSelect from "@/components/SearchableSelect";
+import { getDaftarPermintaan, approvePermintaan, getPermintaanFormData, createFppBaru } from "./actions";
+import { Prisma } from "@prisma/client"; // Import tipe dari Prisma
+import { generateFPKB } from "@/lib/generateFpkb"; // Pastikan path ini benar
+import { ClipboardList, CheckCircle, Clock, FilePlus, Trash2, Edit3, ChevronDown, ChevronUp, Plus, X, Save, Search } from "lucide-react";
+import SearchableSelect from "@/components/SearchableSelect"; // Import komponen baru
 
+// Definisikan tipe data yang lebih spesifik
 type PermintaanWithDetails = Prisma.Permintaan_HeaderGetPayload<{
-  include: { details: { include: { barang: true } } };
+  include: { details: { include: { barang: true } } }
 }>;
 type MasterBarang = Prisma.Master_BarangGetPayload<{}>;
 
 export default function RequisitionPage() {
-  const [permintaanList, setPermintaanList] = useState<PermintaanWithDetails[]>(
-    [],
-  );
+  const [permintaanList, setPermintaanList] = useState<PermintaanWithDetails[]>([]);
   const [masterBarang, setMasterBarang] = useState<MasterBarang[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -43,7 +24,7 @@ export default function RequisitionPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [fppItems, setFppItems] = useState([{ barangId: "", qty: 1 }]);
+  const [fppItems, setFppItems] = useState([{ barangId: "", qty: 1, satuan: "" }]);
 
   useEffect(() => {
     fetchData();
@@ -55,7 +36,7 @@ export default function RequisitionPage() {
       getDaftarPermintaan(),
       getPermintaanFormData(),
     ]);
-    setPermintaanList((requests as PermintaanWithDetails[]) || []);
+    setPermintaanList(requests as PermintaanWithDetails[] || []);
     setMasterBarang(formData.barang || []);
     setIsLoading(false);
   };
@@ -66,9 +47,7 @@ export default function RequisitionPage() {
     } else {
       setExpandedRow(id);
       const initAdj: Record<string, number> = {};
-      details.forEach((d) => {
-        initAdj[d.id] = d.qty_diminta;
-      });
+      details.forEach(d => { initAdj[d.id] = d.qty_diminta; });
       setAdjustments(initAdj);
     }
   };
@@ -141,7 +120,7 @@ export default function RequisitionPage() {
   };
 
   const handleAddFppItem = () => {
-    setFppItems([...fppItems, { barangId: "", qty: 1 }]);
+    setFppItems([...fppItems, { barangId: "", qty: 1, satuan: "" }]);
   };
 
   const handleRemoveFppItem = (index: number) => {
@@ -151,6 +130,15 @@ export default function RequisitionPage() {
   const handleFppItemChange = (index: number, field: string, value: any) => {
     const newItems = [...fppItems];
     newItems[index] = { ...newItems[index], [field]: value };
+
+    // Kalau yg diubah adalah barangId, update satuan juga
+    if (field === "barangId" && value) {
+      const selectedBarang = masterBarang.find((b: any) => b.id === value);
+      if (selectedBarang) {
+        newItems[index].satuan = selectedBarang.satuan || "";
+      }
+    }
+
     setFppItems(newItems);
   };
 
@@ -178,7 +166,7 @@ export default function RequisitionPage() {
     if (res.success) {
       alert("✅ Dokumen FPP berhasil disimpan sebagai DRAFT!");
       setIsModalOpen(false);
-      setFppItems([{ barangId: "", qty: 1 }]);
+      setFppItems([{ barangId: "", qty: 1 }]); // Reset form
       fetchData();
     } else {
       alert("❌ " + res.error);
@@ -238,7 +226,7 @@ export default function RequisitionPage() {
                   </td>
                 </tr>
               ) : (
-                permintaanList.map((req) => (
+                permintaanList.map((req: any) => (
                   <React.Fragment key={req.id}>
                     <tr
                       onClick={() => toggleRow(req.id, req.details)}
@@ -383,8 +371,8 @@ export default function RequisitionPage() {
       {/* MODAL INPUT FPP BARU */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-3xl">
+          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                 <FilePlus className="text-blue-600" size={24} /> Form Input FPP
                 Cabang
@@ -456,74 +444,35 @@ export default function RequisitionPage() {
                   </div>
 
                   <div className="space-y-3">
-                    {fppItems.map((item, index) => {
-                      // Temukan master barang terpilih untuk mendapatkan satuan
-                      const selectedBarang = masterBarang.find(
-                        (b) => b.id === item.barangId,
-                      );
-                      const satuan = selectedBarang
-                        ? selectedBarang.satuan
-                        : "Unit";
-
-                      return (
-                        <div
-                          key={index}
-                          className="flex flex-col sm:flex-row sm:items-center gap-3 bg-white p-3 rounded-xl border border-slate-100 shadow-sm relative"
-                          style={{ zIndex: 50 - index }} // Mencegah dropdown tertimpa baris bawahnya
-                        >
-                          <div className="flex-1 relative">
-                            <SearchableSelect
-                              name={`items[${index}][barangId]`}
-                              options={masterBarang.map((b) => ({
-                                id: b.id,
-                                label: b.nama,
-                                sku: b.sku,
-                              }))}
-                              value={item.barangId}
-                              onChange={(val) =>
-                                handleFppItemChange(index, "barangId", val)
-                              }
-                              placeholder="Ketik SKU atau Nama Barang..."
-                            />
-                          </div>
-
-                          <div className="flex items-center gap-3">
-                            {/* Input Qty + Label Satuan Otomatis */}
-                            <div className="w-48 shrink-0 flex items-center border border-slate-300 rounded-lg overflow-hidden focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 bg-white">
-                              <input
-                                type="number"
-                                min="1"
-                                value={item.qty}
-                                onChange={(e) =>
-                                  handleFppItemChange(
-                                    index,
-                                    "qty",
-                                    parseInt(e.target.value) || 1,
-                                  )
-                                }
-                                className="w-full px-3 py-2 outline-none text-sm text-center font-bold min-w-0"
-                                required
-                              />
-                              <span className="bg-slate-100 px-3 py-2 text-xs font-bold text-slate-500 border-l border-slate-300 h-full flex items-center justify-center min-w-[4.5rem] whitespace-nowrap uppercase">
-                                {satuan}
-                              </span>
-                            </div>
-
-                            {/* Tombol Hapus Baris */}
-                            {fppItems.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveFppItem(index)}
-                                className="shrink-0 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Hapus Baris"
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                            )}
-                          </div>
+                    {fppItems.map((item, index) => (
+                      <div key={index} className="flex items-center gap-3">
+                        <div className="flex-1 relative">
+                          <SearchableSelect
+                            name={`items[${index}][barangId]`}
+                            options={masterBarang.map(b => ({ id: b.id, label: b.nama, sku: b.sku }))}
+                            value={item.barangId}
+                            onChange={(val) => handleFppItemChange(index, "barangId", val)}
+                            placeholder="Ketik SKU atau Nama Barang..."
+                            className="z-20" // Tambahkan z-index jika perlu
+                          />
                         </div>
-                      );
-                    })}
+                        <div className="w-24 shrink-0">
+                          <input 
+                            type="number" 
+                            min="1"
+                            value={item.qty}
+                            onChange={(e) => handleFppItemChange(index, "qty", parseInt(e.target.value) || 1)}
+                            className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm text-center font-bold"
+                            required
+                          />
+                        </div>
+                        {fppItems.length > 1 && (
+                          <button type="button" onClick={() => handleRemoveFppItem(index)} className="shrink-0 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                            <Trash2 size={18}/>
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
 

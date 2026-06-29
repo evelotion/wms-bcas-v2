@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import withPWAInit from "@ducanh2912/next-pwa";
 
+<<<<<<< HEAD
 const nextConfig: NextConfig = {
   // FIX: Sesuai warning dari Next.js, 'experimental.serverComponentsExternalPackages'
   // telah dipindahkan ke 'serverComponentsExternalPackages' di level atas (top-level).
@@ -9,6 +10,19 @@ const nextConfig: NextConfig = {
   serverComponentsExternalPackages: ["@prisma/client", "@prisma/adapter-pg", "pg"],
   // Konfigurasi 'experimental.turbopack' juga dihapus karena tidak valid dan
   // menyebabkan warning.
+=======
+const withPWA = withPWAInit({
+  dest: "public",
+  cacheOnFrontEndNav: true,
+  aggressiveFrontEndNavCaching: true,
+  reloadOnOnline: true,
+  disable: process.env.NODE_ENV === "development",
+});
+
+const nextConfig = {
+  // Pastikan tidak ada 'output: export' di sini
+  turbopack: {},
+>>>>>>> 23bb1bf36ee2eccc18768a8143ec1991a9afd5d9
 };
 
 // Cek apakah kita lagi jalanin di lokal (npm run dev)

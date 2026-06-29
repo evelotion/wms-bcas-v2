@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react"; // Tambah useState
 import { Inter } from "next/font/google";

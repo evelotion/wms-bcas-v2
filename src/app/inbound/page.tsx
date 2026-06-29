@@ -58,8 +58,8 @@ export default function InboundPage() {
       }
       alert(alertMsg);
       e.currentTarget.reset();
-      setSelectedBarangId(""); // Reset dropdown
-      setSelectedLokasiId(""); // Reset dropdown
+      setSelectedBarangId(""); 
+      setSelectedLokasiId(""); 
       setIsModalOpen(false); 
       fetchData();
     } else {
@@ -161,18 +161,19 @@ export default function InboundPage() {
         )}
       </div>
 
-      {/* MODAL FORM INBOUND (Tetap sama) */}
+      {/* MODAL FORM INBOUND FIX Z-INDEX & OVERFLOW */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl border border-slate-100 flex flex-col animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <ArrowDownToLine size={20} className="text-emerald-600"/> Tambah Inbound Baru
               </h2>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors"><X size={20}/></button>
             </div>
             
-            <div className="p-6 overflow-y-auto no-scrollbar">
+            {/* PERUBAHAN: overflow-visible dan pb-24 agar dropdown leluasa render ke bawah */}
+            <div className="p-6 overflow-visible pb-24">
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="md:col-span-2">

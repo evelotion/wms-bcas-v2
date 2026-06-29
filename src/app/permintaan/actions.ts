@@ -35,7 +35,7 @@ export async function approvePermintaan(
     let instruksi: string[] = [];
     let rawDetails: any[] = [];
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       const header = await tx.permintaan_Header.findUnique({
         where: { id: headerId },
         include: { details: { include: { barang: true } } }
@@ -159,7 +159,7 @@ export async function fulfillOutstanding(outstandingId: string, qtyFulfill: numb
     let rawDetails: any[] = [];
     let instruksi: string[] = [];
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       const outstanding = await tx.permintaan_Outstanding.findUnique({
         where: { id: outstandingId },
         include: { barang: true, header: true }
@@ -188,6 +188,7 @@ export async function fulfillOutstanding(outstandingId: string, qtyFulfill: numb
 
       // 2. Potong Stok FIFO
       let qtyToProcess = qtyFulfill;
+      let totalHargaSistem = 0;
       const availableBatches = await tx.batch_Barang.findMany({
         where: { barangId: outstanding.barangId, qty_sisa: { gt: 0 }, status: 'AVAILABLE' },
         orderBy: { tanggal_masuk: 'asc' },
@@ -198,7 +199,9 @@ export async function fulfillOutstanding(outstandingId: string, qtyFulfill: numb
         if (qtyToProcess <= 0) break;
         const potong = Math.min(batch.qty_sisa, qtyToProcess);
         qtyToProcess -= potong;
-        
+
+        totalHargaSistem += potong * (batch.harga_satuan || 0);
+
         const sisaDiRak = batch.qty_sisa - potong;
         await tx.batch_Barang.update({
           where: { id: batch.id },
@@ -230,11 +233,16 @@ export async function fulfillOutstanding(outstandingId: string, qtyFulfill: numb
         }
       });
 
+      // Hitung harga rata-rata (weighted average) dari batch yang digunakan
+      const harga_satuan_aktual = qtyFulfill > 0 ? totalHargaSistem / qtyFulfill : 0;
+      const totalHarga = harga_satuan_aktual * qtyFulfill;
+
       // Siapkan data untuk dikirim ke fungsi generate PDF
       rawDetails.push({
         barang: outstanding.barang,
         qty_disetujui: qtyFulfill,
-        harga_satuan: 0 // Nanti bisa dikaitkan ke harga avg batch kalau perlu
+        harga_satuan: harga_satuan_aktual,
+        total: totalHarga
       });
       
     });

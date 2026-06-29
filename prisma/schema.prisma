@@ -5,9 +5,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Baris url dihapus dari sini (nanti baca dari .env)
 }
-
 // --- MASTER DATA ---
 model Master_Barang {
   id            String   @id @default(uuid())
@@ -47,7 +46,7 @@ model Batch_Barang {
   supplier  String?
   nomorator String?
   
-  status    StatusBatch @default(AVAILABLE) // AVAILABLE, QUARANTINE, DEPLETED
+  status    String @default("AVAILABLE") // AVAILABLE, QUARANTINE, DEPLETED
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -71,7 +70,7 @@ model Mutasi_Ledger {
   batchId String
   batch   Batch_Barang @relation(fields: [batchId], references: [id])
 
-  tipe_mutasi   TipeMutasi
+  tipe_mutasi   String
   qty_perubahan Int // Positif untuk INBOUND/RETUR, negatif untuk OUTBOUND
   saldo_akhir   Int // Snapshot sisa qty di batch ini SETELAH mutasi terjadi
   referensi     String? // Nomor PO, Bukti FPKB, atau ID Requisition
@@ -116,7 +115,7 @@ model Permintaan_Header {
   nomor_fpkb    String? @unique // Generate Otomatis. Contoh: 00001/FPKB-CTK/LOG/2026
   cabang        String // Tujuan / Unit kerja
   pic_nama      String // Nama yang minta
-  status        StatusPermintaan @default(DRAFT) // Pakai Enum baru
+  status        String @default("DRAFT") // Pakai Enum baru
   keterangan    String?
 
   createdAt DateTime @default(now())
@@ -132,7 +131,7 @@ model Permintaan_Detail {
   barangId      String
   qty_diminta   Int // Jumlah yang direquest cabang
   qty_disetujui Int      @default(0) // Jumlah yang disetujui SPV
-  status_item   StatusItem @default(OUTSTANDING) // Pakai Enum baru
+  status_item   String @default("OUTSTANDING") // Pakai Enum baru
   keterangan    String?
 
   header Permintaan_Header @relation(fields: [headerId], references: [id], onDelete: Cascade)
@@ -149,7 +148,7 @@ model Permintaan_Outstanding {
   barang         Master_Barang @relation(fields: [barangId], references: [id])
   
   qty_sisa       Int      // Sisa barang yang belum dikirim ke cabang
-  status         StatusItem @default(OUTSTANDING) // Kalau disusulin nanti, jadi FULFILLED
+  status         String @default("OUTSTANDING") // Kalau disusulin nanti, jadi FULFILLED
   
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
