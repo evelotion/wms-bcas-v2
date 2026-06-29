@@ -13,7 +13,7 @@ export async function getDetailBarangLengkap(id: string) {
     where: { barangId: id },
     include: { lokasi: true }
   });
-  const totalStok = batches.reduce((sum, b) => sum + b.qty_sisa, 0);
+const totalStok = batches.reduce((sum: number, b: any) => sum + b.qty_sisa, 0);
 
   // 3. Tarik Log Riwayat Keluar-Masuk (Kartu Stok)
   const mutasi = await prisma.mutasi_Ledger.findMany({
