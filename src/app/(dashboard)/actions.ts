@@ -34,10 +34,11 @@ export async function getDashboardStats() {
     include: { batches: { select: { qty_sisa: true } } }
   });
 
-  const lowStockAlerts = semuaBarang.map(b => {
-    const totalStok = b.batches.reduce((sum, batch) => sum + batch.qty_sisa, 0);
+  // PERBAIKAN DI SINI: Tambahkan ": any" pada parameter b dan batch
+  const lowStockAlerts = semuaBarang.map((b: any) => {
+    const totalStok = b.batches.reduce((sum: number, batch: any) => sum + batch.qty_sisa, 0);
     return { ...b, totalStok };
-  }).filter(b => b.totalStok <= b.batas_minimum);
+  }).filter((b: any) => b.totalStok <= b.batas_minimum);
 
   return {
     totalSku,
