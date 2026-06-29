@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // Baris url dihapus dari sini (nanti baca dari .env)
+  url      = env("DATABASE_URL") // <-- INI YANG BIKIN ERROR TADI BRO, UDAH GUE BALIKIN
 }
 
 // --- MASTER DATA ---
@@ -43,7 +43,7 @@ model Batch_Barang {
   harga_satuan  Float
 
   // Data spesifik per batch penerimaan
-supplier  String?
+  supplier  String?
   nomorator String?
   
   status    StatusBatch @default(AVAILABLE) // AVAILABLE, QUARANTINE, DEPLETED
