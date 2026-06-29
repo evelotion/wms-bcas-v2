@@ -1,14 +1,23 @@
+// src/lib/prisma.ts
 import { PrismaClient } from '@prisma/client';
+import { Pool } from 'pg';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    // Di versi 7, kalau pake config file, kita nggak perlu masukin url lagi di sini
-    // karena udah di-handle otomatis lewat prisma.config.ts
-  });
+let prisma: PrismaClient;
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+// Setup Pool untuk koneksi database (Wajib di Prisma v7)
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+
+if (process.env.NODE_ENV === 'production') {
+  prisma = new PrismaClient({ adapter });
+} else {
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = new PrismaClient({ adapter });
+  }
+  prisma = globalForPrisma.prisma;
+}
 
 export default prisma;
