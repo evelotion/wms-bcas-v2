@@ -1,4 +1,3 @@
-// src/app/master/DialogImport.tsx
 "use client";
 
 import { useState, useRef } from "react";
@@ -15,7 +14,9 @@ export default function DialogImport({ onRefresh }: { onRefresh: () => void }) {
   const parsePRN = (text: string) => {
     const lines = text.split('\n');
     let isDataMode = false;
-    const parsedData = [];
+    
+    // FIX: Tambahin ': any[]' biar TypeScript nggak error implicit any array
+    const parsedData: any[] = []; 
 
     for (let line of lines) {
       if (line.startsWith('---')) {
@@ -144,8 +145,9 @@ export default function DialogImport({ onRefresh }: { onRefresh: () => void }) {
         <FileUp size={18} /> Import .PRN / Excel
       </button>
 
+      {/* FIX: Ubah z-50 jadi z-[100] biar pop-up nggak ketutup card tabel */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-100">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">

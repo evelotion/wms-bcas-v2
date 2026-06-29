@@ -1,6 +1,5 @@
-import { PageSkeleton } from './ui/skeletons';
+import { PageSkeleton } from '@/components/skeletons';
 
 export default function Loading() {
-  // Next.js akan menampilkan UI ini sebagai fallback saat data halaman sedang dimuat.
-  return <PageSkeleton />;
+   return <PageSkeleton />;
 }

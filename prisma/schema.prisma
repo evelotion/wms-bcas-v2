@@ -1,10 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
   provider = "postgresql"
-  // Baris url dihapus dari sini (nanti baca dari .env)
+  url      = env("DATABASE_URL")
 }
 
 // --- MASTER DATA ---
@@ -44,8 +45,7 @@ model Batch_Barang {
 
   // Data spesifik per batch penerimaan
   supplier  String?
-  nomorator_awal  String?
-  nomorator_akhir String?
+  nomorator String?
   
   status    StatusBatch @default(AVAILABLE) // AVAILABLE, QUARANTINE, DEPLETED
   createdAt DateTime @default(now())
