@@ -54,7 +54,7 @@ export async function createInbound(formData: FormData) {
           qty_sisa: qty,
           status: 'AVAILABLE',
           supplier: supplier || null,
-          nomorator: nomorator || null,
+          nomorator_akhir: nomorator || null,
         }
       });
 

@@ -1,11 +1,11 @@
-import prisma from '../../../../../lib/prisma'; // Sesuaikan kembali ke '@/lib/prisma' kalau relative path ini udah nggak perlu
-import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import { NextResponse, type NextRequest } from 'next/server';
 
 export async function GET(
-  request: Request,
-  { params }: { params: { barangId: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ barangId: string }> }
 ) {
-  const { barangId } = params;
+  const { barangId } = await params;
 
   if (!barangId) {
     return NextResponse.json({ error: 'barangId is required' }, { status: 400 });
@@ -15,21 +15,20 @@ export async function GET(
     const lastBatch = await prisma.batch_Barang.findFirst({
       where: {
         barangId: barangId,
-        // PERBAIKAN: Pakai kolom 'nomorator' sesuai dengan yang ada di schema.prisma lo
-        nomorator: {
-          not: null, 
+        nomorator_akhir: {
+          not: null,
         },
       },
       orderBy: {
-        tanggal_masuk: 'desc', 
+        tanggal_masuk: 'desc',
       },
       select: {
-        nomorator: true, // PERBAIKAN DI SINI JUGA
+        nomorator_akhir: true,
       },
     });
 
     return NextResponse.json({
-      last_serial: lastBatch?.nomorator || null, // DAN DI SINI
+      last_serial: lastBatch?.nomorator_akhir || null,
     });
 
   } catch (error) {

@@ -120,9 +120,9 @@ export default function InboundPage() {
                     <td className="px-6 py-4 font-medium text-slate-800">
                       {item.batch?.barang?.nama}
                       <div className="text-xs text-blue-600 font-mono mt-0.5">{item.batch?.barang?.sku}</div>
-                      {(item.batch?.supplier || item.batch?.nomorator) && (
+                      {(item.batch?.supplier || item.batch?.nomorator_akhir) && (
                         <div className="text-[10px] text-slate-500 mt-1 bg-white/60 px-2 py-0.5 rounded w-fit border border-slate-100">
-                          {item.batch?.supplier} {item.batch?.nomorator ? `| Seri: ${item.batch.nomorator}` : ''}
+                          {item.batch?.supplier} {item.batch?.nomorator_akhir ? `| Seri: ${item.batch.nomorator_akhir}` : ''}
                         </div>
                       )}
                     </td>
