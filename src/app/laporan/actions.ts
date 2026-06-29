@@ -24,7 +24,7 @@ export async function getLaporanData(bulan: string) {
     "Nama Barang": b.nama,
     "Satuan": b.satuan,
     "Batas Minimum": b.batas_minimum,
-    "Sisa Stok Terkini": b.batches.reduce((sum, batch) => sum + batch.qty_sisa, 0),
+    "Sisa Stok Terkini": b.batches.reduce((sum: number, batch) => sum + batch.qty_sisa, 0),
   }));
 
   // 2. Laporan Barang Masuk (INBOUND)
