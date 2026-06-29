@@ -84,7 +84,7 @@ export async function createInbound(formData: FormData) {
       });
 
       if (outstandingReqs.length > 0) {
-        outstandingReqs.forEach(req => {
+        outstandingReqs.forEach((req: any) => {
           triggeredOutstandings.push(`▶️ ${req.header.cabang} (FPP: ${req.header.nomor_fpp}) - Kurang: ${req.qty_sisa} ${req.barang.satuan}`);
         });
       }

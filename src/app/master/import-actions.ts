@@ -41,7 +41,7 @@ export async function importDataAwal(formattedData: any[]) {
             qty_sisa: item.stok,
             harga_satuan: item.harga_satuan,
             supplier: item.supplier,
-            nomorator_akhir: item.nomorator,
+            nomorator: item.nomorator,
             status: 'AVAILABLE'
           }
         });

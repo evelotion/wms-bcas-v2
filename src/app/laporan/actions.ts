@@ -40,7 +40,7 @@ export async function getLaporanData(bulan: string) {
     "Qty Masuk": m.qty_perubahan,
     "Referensi / PO": m.referensi,
     "Supplier": m.batch.supplier || '-',
-    "Nomorator / Seri": m.batch.nomorator_akhir || '-',
+    "Nomorator / Seri": m.batch.nomorator || '-',
     "Keterangan": m.keterangan || '-'
   }));
 
