@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 
 type Option = {
@@ -37,7 +38,6 @@ export default function SearchableSelect({ name, options, value, onChange, place
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [wrapperRef]);
 
-  // Position the dropdown panel with fixed coords so it escapes overflow-clipped ancestors
   useEffect(() => {
     if (isOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
@@ -51,7 +51,6 @@ export default function SearchableSelect({ name, options, value, onChange, place
     }
   }, [isOpen]);
 
-  // Keep panel aligned on scroll/resize while open
   useEffect(() => {
     if (!isOpen) return;
     const update = () => {
@@ -79,6 +78,29 @@ export default function SearchableSelect({ name, options, value, onChange, place
     (opt.sku && opt.sku.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  const dropdownPanel = isOpen && (
+    <div className="bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto" style={panelStyle}>
+      <div className="p-2 sticky top-0 bg-white">
+        <input
+          type="text"
+          placeholder="Cari..."
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-emerald-500"
+        />
+      </div>
+      {filteredOptions.map(opt => (
+        <div
+          key={opt.id}
+          onClick={() => { onChange(opt.id); setIsOpen(false); setSearchTerm(''); }}
+          className="px-4 py-2 hover:bg-emerald-50 cursor-pointer text-sm"
+        >
+          {`[${opt.sku}] ${opt.label}`}
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div className={`relative ${className}`} ref={wrapperRef}>
       <input type="hidden" name={name} value={value} />
@@ -86,28 +108,7 @@ export default function SearchableSelect({ name, options, value, onChange, place
         {selectedOption ? `[${selectedOption.sku}] ${selectedOption.label}` : <span className="text-slate-400">{placeholder}</span>}
         <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
-      {isOpen && (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto" style={panelStyle}>
-          <div className="p-2 sticky top-0 bg-white">
-            <input
-              type="text"
-              placeholder="Cari..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-emerald-500"
-            />
-          </div>
-          {filteredOptions.map(opt => (
-            <div
-              key={opt.id}
-              onClick={() => { onChange(opt.id); setIsOpen(false); setSearchTerm(''); }}
-              className="px-4 py-2 hover:bg-emerald-50 cursor-pointer text-sm"
-            >
-              {`[${opt.sku}] ${opt.label}`}
-            </div>
-          ))}
-        </div>
-      )}
+      {typeof window !== 'undefined' && createPortal(dropdownPanel, document.body)}
     </div>
   );
 }
