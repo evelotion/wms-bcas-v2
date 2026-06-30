@@ -18,7 +18,7 @@ export async function GET(
     const lastBatch = await prisma.batch_Barang.findFirst({
       where: {
         barangId: barangId,
-        nomorator: {
+        nomorator_akhir: {
           not: null,
         },
       },
@@ -26,12 +26,12 @@ export async function GET(
         tanggal_masuk: 'desc',
       },
       select: {
-        nomorator: true,
+        nomorator_akhir: true,
       },
     });
 
     return NextResponse.json({
-      last_serial: lastBatch?.nomorator || null,
+      last_serial: lastBatch?.nomorator_akhir || null,
     });
 
   } catch (error) {

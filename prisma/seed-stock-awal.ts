@@ -90,11 +90,12 @@ async function main() {
             data: {
               barangId: barang.id,
               lokasiId: lokasiAwal.id,
-              harga_satuan: finalHarga, 
+              harga_satuan: finalHarga,
               qty_awal: totalQty,
               qty_sisa: totalQty,
-              supplier: '-', 
-              nomorator: '-', 
+              supplier: '-',
+              nomorator_awal: '-',
+              nomorator_akhir: '-',
               status: 'AVAILABLE',
             },
           });
