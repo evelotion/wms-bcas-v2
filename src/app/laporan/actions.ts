@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 
 export async function getLaporanData(bulan: string) {
   let dateFilter = {};
-  
+
   if (bulan !== "all") {
     const [year, month] = bulan.split("-");
     const startDate = new Date(Number(year), Number(month) - 1, 1);
@@ -17,14 +17,17 @@ export async function getLaporanData(bulan: string) {
     include: { batches: true },
     orderBy: { nama: 'asc' }
   });
-  
-  const persediaan = masterBarang.map((b: any) => ({
-    "Kode / SKU": b.sku,
-    "Nama Barang": b.nama,
-    "Satuan": b.satuan,
-    "Batas Minimum": b.batas_minimum,
-    "Sisa Stok Terkini": b.batches.reduce((sum: number, batch: any) => sum + batch.qty_sisa, 0),
-  }));
+
+  const persediaan = masterBarang.map((b) => {
+    const totalStok = b.batches.reduce((sum, batch) => sum + batch.qty_sisa, 0);
+    return {
+      "Kode / SKU": b.sku,
+      "Nama Barang": b.nama,
+      "Satuan": b.satuan,
+      "Batas Minimum": b.batas_minimum,
+      "Sisa Stok Terkini": totalStok,
+    };
+  });
 
   // 2. Laporan Barang Masuk (INBOUND)
   const riwayatMasuk = await prisma.mutasi_Ledger.findMany({
@@ -33,16 +36,22 @@ export async function getLaporanData(bulan: string) {
     orderBy: { createdAt: 'desc' }
   });
 
-  const laporanMasuk = riwayatMasuk.map((m: any) => ({
-    "Tanggal Masuk": m.createdAt.toLocaleString('id-ID'),
-    "Kode / SKU": m.batch.barang.sku,
-    "Nama Barang": m.batch.barang.nama,
-    "Qty Masuk": m.qty_perubahan,
-    "Referensi / PO": m.referensi,
-    "Supplier": m.batch.supplier || '-',
-    "Nomorator / Seri": m.batch.nomorator || '-',
-    "Keterangan": m.keterangan || '-'
-  }));
+  const laporanMasuk = riwayatMasuk.map((m) => {
+    const nomorator = m.batch.nomorator_awal && m.batch.nomorator_akhir
+      ? `${m.batch.nomorator_awal} - ${m.batch.nomorator_akhir}`
+      : (m.batch.nomorator_awal || m.batch.nomorator_akhir || '-');
+
+    return {
+      "Tanggal Masuk": m.createdAt.toLocaleString('id-ID'),
+      "Kode / SKU": m.batch.barang.sku,
+      "Nama Barang": m.batch.barang.nama,
+      "Qty Masuk": m.qty_perubahan,
+      "Referensi / PO": m.referensi || '-',
+      "Supplier": m.batch.supplier || '-',
+      "Nomorator / Seri": nomorator,
+      "Keterangan": m.keterangan || '-'
+    };
+  });
 
   // 3. Laporan Barang Keluar (OUTBOUND)
   const riwayatKeluar = await prisma.mutasi_Ledger.findMany({
@@ -51,12 +60,12 @@ export async function getLaporanData(bulan: string) {
     orderBy: { createdAt: 'desc' }
   });
 
-  const laporanKeluar = riwayatKeluar.map((m: any) => ({
+  const laporanKeluar = riwayatKeluar.map((m) => ({
     "Tanggal Keluar": m.createdAt.toLocaleString('id-ID'),
     "Kode / SKU": m.batch.barang.sku,
     "Nama Barang": m.batch.barang.nama,
     "Qty Keluar": Math.abs(m.qty_perubahan),
-    "Tujuan / Referensi FPKB": m.referensi,
+    "Tujuan / Referensi FPKB": m.referensi || '-',
     "Keterangan": m.keterangan || '-',
     "Batch Pengurang": m.batch.tanggal_masuk.toLocaleDateString('id-ID')
   }));
