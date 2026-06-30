@@ -7,8 +7,8 @@ import { revalidatePath } from "next/cache";
 // Tarik data untuk dropdown Form
 export async function getInboundFormData() {
   const barang = await prisma.master_Barang.findMany({ orderBy: { nama: 'asc' } });
-  const lokasi = await prisma.lokasi_Rak.findMany({ 
-    orderBy: [{ gudang: 'asc' }, { lorong: 'asc' }, { rak: 'asc' }] 
+  const lokasi = await prisma.lokasi_Rak.findMany({
+    orderBy: [{ gudang: 'asc' }, { lorong: 'asc' }, { rak: 'asc' }]
   });
   return { barang, lokasi };
 }
@@ -23,7 +23,6 @@ export async function getRecentInbound() {
       }
     },
     orderBy: { createdAt: 'desc' },
-    // take: 10 <--- INI KITA HAPUS BIAR PAGINATION DI UI BERFUNGSI
   });
 }
 
@@ -36,15 +35,16 @@ export async function createInbound(formData: FormData) {
     const harga = parseFloat(formData.get("harga") as string) || 0;
     const referensi = formData.get("referensi") as string;
     const keterangan = formData.get("keterangan") as string;
-    
+
     // Fitur Baru Fase 3: Supplier & Nomorator
     const supplier = formData.get("supplier") as string;
-    const nomorator = formData.get("nomorator") as string;
+    const nomoratorAwal = formData.get("nomorator_awal") as string;
+    const nomoratorAkhir = formData.get("nomorator_akhir") as string;
 
     let triggeredOutstandings: string[] = [];
 
-    await prisma.$transaction(async (tx: any) => {
-      // 1. Generate Batch Baru (Sekarang nyimpen Supplier & Nomorator)
+    await prisma.$transaction(async (tx) => {
+      // 1. Generate Batch Baru
       const batch = await tx.batch_Barang.create({
         data: {
           barangId,
@@ -54,7 +54,8 @@ export async function createInbound(formData: FormData) {
           qty_sisa: qty,
           status: 'AVAILABLE',
           supplier: supplier || null,
-          nomorator: nomorator || null,
+          nomorator_awal: nomoratorAwal || null,
+          nomorator_akhir: nomoratorAkhir || null,
         }
       });
 
@@ -67,35 +68,36 @@ export async function createInbound(formData: FormData) {
           saldo_akhir: qty,
           referensi,
           keterangan,
-          createdBy: 'USER_MANUAL', 
+          createdBy: 'USER_MANUAL',
         }
       });
 
       // 3. SMART TRIGGER OUTSTANDING
       const outstandingReqs = await tx.permintaan_Outstanding.findMany({
-        where: { 
-          barangId: barangId, 
-          status: 'OUTSTANDING' 
+        where: {
+          barangId: barangId,
+          status: 'OUTSTANDING'
         },
-        include: { 
+        include: {
           header: true,
           barang: true
         }
       });
 
       if (outstandingReqs.length > 0) {
-        outstandingReqs.forEach((req: any) => {
+        outstandingReqs.forEach((req) => {
           triggeredOutstandings.push(`▶️ ${req.header.cabang} (FPP: ${req.header.nomor_fpp}) - Kurang: ${req.qty_sisa} ${req.barang.satuan}`);
         });
       }
     });
 
     revalidatePath("/inbound");
-    revalidatePath("/permintaan"); 
-    
+    revalidatePath("/permintaan");
+
     return { success: true, triggeredOutstandings };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Gagal simpan Inbound:", error);
-    return { success: false, error: error.message || "Gagal menyimpan transaksi Inbound." };
+    const message = error instanceof Error ? error.message : "Gagal menyimpan transaksi Inbound.";
+    return { success: false, error: message };
   }
 }

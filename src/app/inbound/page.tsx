@@ -120,9 +120,9 @@ export default function InboundPage() {
                     <td className="px-6 py-4 font-medium text-slate-800">
                       {item.batch?.barang?.nama}
                       <div className="text-xs text-blue-600 font-mono mt-0.5">{item.batch?.barang?.sku}</div>
-                      {(item.batch?.supplier || item.batch?.nomorator) && (
+                      {(item.batch?.supplier || item.batch?.nomorator_awal || item.batch?.nomorator_akhir) && (
                         <div className="text-[10px] text-slate-500 mt-1 bg-white/60 px-2 py-0.5 rounded w-fit border border-slate-100">
-                          {item.batch?.supplier} {item.batch?.nomorator ? `| Seri: ${item.batch.nomorator}` : ''}
+                          {item.batch?.supplier} {(item.batch?.nomorator_awal || item.batch?.nomorator_akhir) ? `| Seri: ${item.batch.nomorator_awal || ''}${item.batch?.nomorator_akhir ? ` - ${item.batch.nomorator_akhir}` : ''}` : ''}
                         </div>
                       )}
                     </td>
@@ -213,8 +213,12 @@ export default function InboundPage() {
                     <input name="supplier" type="text" placeholder="Opsional" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-emerald-500 outline-none text-sm" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Nomorator / Serial</label>
-                    <input name="nomorator" type="text" placeholder="Opsional" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-emerald-500 outline-none text-sm" />
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Nomorator Awal</label>
+                    <input name="nomorator_awal" type="text" placeholder="Opsional, contoh: 001" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-emerald-500 outline-none text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Nomorator Akhir</label>
+                    <input name="nomorator_akhir" type="text" placeholder="Opsional, contoh: 100" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-emerald-500 outline-none text-sm" />
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan Tambahan</label>
