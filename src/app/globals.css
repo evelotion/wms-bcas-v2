@@ -1,22 +1,18 @@
-/* Format baru Wajib untuk Tailwind v4 */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 @layer base {
   body {
     background-color: #f8fafc;
-    background-image: 
-      radial-gradient(at 0% 0%, hsla(217, 100%, 95%, 1) 0, transparent 50%), 
-      radial-gradient(at 100% 0%, hsla(210, 100%, 97%, 1) 0, transparent 50%), 
-      radial-gradient(at 100% 100%, hsla(162, 100%, 96%, 1) 0, transparent 50%), 
+    background-image:
+      radial-gradient(at 0% 0%, hsla(217, 100%, 95%, 1) 0, transparent 50%),
+      radial-gradient(at 100% 0%, hsla(210, 100%, 97%, 1) 0, transparent 50%),
+      radial-gradient(at 100% 100%, hsla(162, 100%, 96%, 1) 0, transparent 50%),
       radial-gradient(at 0% 100%, hsla(240, 100%, 96%, 1) 0, transparent 50%);
     background-attachment: fixed;
     color: #0f172a;
   }
 }
 
-/* Di Tailwind v4, custom class pakai @utility agar terbaca otomatis */
 @utility glass-panel {
   background-color: rgb(255 255 255 / 0.6);
   backdrop-filter: blur(24px);
