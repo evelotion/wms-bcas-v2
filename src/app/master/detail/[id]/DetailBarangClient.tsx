@@ -63,36 +63,52 @@ export default function DetailBarangClient({ id }: { id: string }) {
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-100/50 text-slate-600 uppercase text-xs font-semibold">
               <tr>
-                <th className="px-6 py-4">Waktu Transaksi</th>
-                <th className="px-6 py-4">Tipe</th>
-                <th className="px-6 py-4 text-right">Qty</th>
-                <th className="px-6 py-4 text-right">Sisa (Batch)</th>
-                <th className="px-6 py-4">Referensi Dokumen</th>
-                <th className="px-6 py-4">Keterangan</th>
+                <th className="px-6 py-4">Tanggal</th>
+                <th className="px-6 py-4">Tipe Transaksi</th>
+                <th className="px-6 py-4 text-center">Perubahan</th>
+                <th className="px-6 py-4 text-center">Saldo Akhir (Batch)</th>
+                <th className="px-6 py-4">Keterangan / Referensi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/40 bg-white/30">
-              {mutasi.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-8 text-slate-500">Belum ada riwayat transaksi.</td></tr>
-              ) : (
-                mutasi.map((log: any) => (
-                  <tr key={log.id} className="hover:bg-white/60">
-                    <td className="px-6 py-4 text-xs font-medium text-slate-500">{new Date(log.createdAt).toLocaleString('id-ID')}</td>
-                    <td className="px-6 py-4">
-                      {log.tipe_mutasi === 'INBOUND' ? (
-                        <span className="flex items-center gap-1 text-emerald-600 font-bold text-xs"><ArrowDownToLine size={14}/> MASUK</span>
+            <tbody className="divide-y divide-slate-100">
+              {mutasi && mutasi.length > 0 ? (
+                mutasi.map((m: any) => (
+                  <tr key={m.id} className="hover:bg-blue-50/50 transition-colors">
+                    <td className="px-6 py-4 text-slate-500">
+                      {new Date(m.createdAt).toLocaleString("id-ID", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </td>
+                    <td className="px-6 py-4 font-medium">
+                      {m.tipe_mutasi === "INBOUND" ? (
+                        <span className="flex items-center gap-2 text-emerald-600">
+                          <ArrowDownToLine size={14} /> Barang Masuk
+                        </span>
                       ) : (
-                        <span className="flex items-center gap-1 text-orange-600 font-bold text-xs"><ArrowUpRight size={14}/> KELUAR</span>
+                        <span className="flex items-center gap-2 text-red-600">
+                          <ArrowUpRight size={14} /> Barang Keluar
+                        </span>
                       )}
                     </td>
-                    <td className={`px-6 py-4 text-right font-black ${log.tipe_mutasi === 'INBOUND' ? 'text-emerald-600' : 'text-orange-600'}`}>
-                      {log.tipe_mutasi === 'INBOUND' ? '+' : '-'}{log.qty_perubahan}
+                    <td className={`px-6 py-4 text-center font-bold ${m.tipe_mutasi === "INBOUND" ? 'text-emerald-700' : 'text-red-700'}`}>
+                      {m.qty_perubahan}
                     </td>
-                    <td className="px-6 py-4 text-right font-bold text-slate-700">{log.saldo_akhir}</td>
-                    <td className="px-6 py-4 font-mono text-xs text-slate-600 font-bold">{log.referensi}</td>
-                    <td className="px-6 py-4 text-xs text-slate-500 max-w-[200px] truncate">{log.keterangan || '-'}</td>
+                    <td className="px-6 py-4 text-center font-bold text-slate-700">
+                      {m.saldo_akhir}
+                    </td>
+                    <td className="px-6 py-4 text-slate-500 text-xs">
+                      <div>{m.keterangan || '-'}</div>
+                      <div className="font-mono mt-1">{m.referensi}</div>
+                    </td>
                   </tr>
                 ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="text-center py-10 text-slate-500">
+                    Belum ada riwayat transaksi untuk barang ini.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
