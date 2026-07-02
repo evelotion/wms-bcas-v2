@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { getDaftarPermintaan, approvePermintaan, getPermintaanFormData, createFppBaru } from "./actions";
 import { getSession } from "@/app/login/actions"; // Panggil session
 import { generateFPKB } from "@/lib/generateFpkb"; 
-import { ClipboardList, CheckCircle, Clock, FilePlus, Trash2, Edit3, ChevronDown, ChevronUp, Plus, X, Save, Search, Lock } from "lucide-react";
+import { ClipboardList, CheckCircle, Clock, FilePlus, Trash2, Edit3, ChevronDown, ChevronUp, Plus, X, Save, Search, Lock, ClipboardPaste } from "lucide-react";
 import SearchableSelect from "@/components/SearchableSelect"; 
 
 export default function RequisitionPage() {
@@ -23,6 +23,10 @@ export default function RequisitionPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fppItems, setFppItems] = useState([{ barangId: "", qty: 1, satuan: "" }]);
+
+  // --- STATE BARU UNTUK PASTE EXCEL ---
+  const [showBulk, setShowBulk] = useState(false);
+  const [bulkText, setBulkText] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -72,7 +76,7 @@ export default function RequisitionPage() {
       ([id, val]) => ({ detailId: id, qtyDisetujui: val })
     );
 
-    const res = await approvePermintaan(req.id, formattedAdjustments, userId); // Lempar userId gudang
+    const res = await approvePermintaan(req.id, formattedAdjustments, userId);
 
     if (res.success && res.rawDetails) {
       alert(`Approval Berhasil! Nomor FPKB: ${res.nomor_fpkb}`);
@@ -125,6 +129,55 @@ export default function RequisitionPage() {
     setFppItems(newItems);
   };
 
+  // --- FUNGSI PASTE EXCEL ---
+  const processExcelData = () => {
+    if (!bulkText.trim()) return;
+    
+    const rows = bulkText.split('\n');
+    const newItems: any[] = [];
+    const notFound: string[] = [];
+
+    rows.forEach(row => {
+      if (!row.trim()) return;
+      const cols = row.split('\t'); 
+      
+      if (cols.length >= 2) {
+        const identifier = cols[0].trim().toLowerCase(); 
+        const qty = parseInt(cols[1].trim()) || 1;
+        
+        // Cari di master barang (Cek SKU dulu, kalau gaada cek Nama)
+        const found = masterBarang.find(b => 
+          b.sku.toLowerCase() === identifier || 
+          b.nama.toLowerCase() === identifier
+        );
+        
+        if (found) {
+          newItems.push({ barangId: found.id, qty, satuan: found.satuan });
+        } else {
+          notFound.push(cols[0].trim());
+        }
+      }
+    });
+
+    if (newItems.length > 0) {
+      // Kalau form masih kosong, timpa aja
+      if (fppItems.length === 1 && fppItems[0].barangId === "") {
+        setFppItems(newItems);
+      } else {
+        // Kalau udah ada isinya, tambahin di bawahnya
+        setFppItems([...fppItems, ...newItems]);
+      }
+      setBulkText(""); 
+      setShowBulk(false); 
+    }
+
+    if (notFound.length > 0) {
+      alert(`Peringatan: ${notFound.length} barang tidak ditemukan di Master Data!\n\n${notFound.join(', ')}`);
+    } else if (newItems.length > 0) {
+      alert(`Berhasil menambahkan ${newItems.length} barang dari Excel!`);
+    }
+  };
+
   const handleSubmitNewFpp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const validItems = fppItems.filter((item) => item.barangId !== "" && item.qty > 0);
@@ -138,7 +191,7 @@ export default function RequisitionPage() {
       pic_nama: formData.get("pic_nama") as string,
     };
 
-    const res = await createFppBaru(headerData, validItems, userId); // Lempar userId admin
+    const res = await createFppBaru(headerData, validItems, userId); 
 
     if (res.success) {
       alert("✅ Dokumen FPP berhasil disimpan dan masuk ke antrean Gudang!");
@@ -304,15 +357,13 @@ export default function RequisitionPage() {
         </div>
       </div>
 
-      {/* MODAL INPUT FPP BARU (TETAP SAMA SEPERTI KODE LO) */}
+      {/* MODAL INPUT FPP BARU */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          {/* ... Isi Modal Input Lo yang sama persis ... */}
           <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <FilePlus className="text-blue-600" size={24} /> Form Input FPP
-                Cabang
+                <FilePlus className="text-blue-600" size={24} /> Form Input FPP Cabang
               </h2>
               <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors">
                 <X size={20} />
@@ -334,13 +385,47 @@ export default function RequisitionPage() {
                     <input name="pic_nama" type="text" required placeholder="Contoh: Dwi Bagus Hastomo" className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm" />
                   </div>
                 </div>
+                
+                {/* --- DETAIL BARANG --- */}
                 <div>
-                  <div className="flex justify-between items-center mb-3">
+                  <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
                     <label className="block text-sm font-bold text-slate-800">Daftar Barang yang Diminta</label>
-                    <button type="button" onClick={handleAddFppItem} className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors">
-                      <Plus size={14} /> Tambah Baris
-                    </button>
+                    <div className="flex gap-2">
+                      <button 
+                        type="button" 
+                        onClick={() => setShowBulk(!showBulk)} 
+                        className={`text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors ${showBulk ? 'bg-slate-200 text-slate-600' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+                      >
+                        <ClipboardPaste size={14} /> {showBulk ? "Tutup Paste Excel" : "Paste dari Excel"}
+                      </button>
+                      <button type="button" onClick={handleAddFppItem} className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors">
+                        <Plus size={14} /> Tambah Baris
+                      </button>
+                    </div>
                   </div>
+
+                  {/* AREA PASTE EXCEL */}
+                  {showBulk && (
+                    <div className="mb-4 bg-emerald-50 p-4 rounded-xl border border-emerald-200 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <p className="text-xs text-emerald-700 mb-2 font-medium">
+                        Copy 2 kolom dari Excel (Kolom 1: SKU atau Nama Barang, Kolom 2: Qty), lalu paste di bawah:
+                      </p>
+                      <textarea 
+                        value={bulkText}
+                        onChange={(e) => setBulkText(e.target.value)}
+                        placeholder={`Contoh:\nSKU-001\t10\nKertas HVS\t5`}
+                        className="w-full h-24 text-sm p-3 border border-emerald-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 mb-3 whitespace-pre"
+                      />
+                      <button 
+                        type="button" 
+                        onClick={processExcelData} 
+                        className="w-full bg-emerald-600 text-white text-xs font-bold py-2.5 rounded-lg hover:bg-emerald-700 shadow-md shadow-emerald-500/20"
+                      >
+                        Proses Data Excel
+                      </button>
+                    </div>
+                  )}
+
                   <div className="space-y-3">
                     {fppItems.map((item, index) => (
                       <div key={index} className="flex items-center gap-3">
