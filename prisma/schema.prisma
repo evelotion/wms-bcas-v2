@@ -6,8 +6,9 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("SUPABASE_DB_URL")
+  directUrl = env("DIRECT_URL") // Prisma akan otomatis pakai ini saat db push
 }
+
 // --- MASTER DATA ---
 model Master_Barang {
   id            String   @id @default(uuid())
@@ -21,7 +22,7 @@ model Master_Barang {
 
   batches           Batch_Barang[]
   permintaanDetails Permintaan_Detail[]
-  outstandings      Permintaan_Outstanding[] // TAMBAHAN: Relasi untuk histori barang ngutang
+  outstandings      Permintaan_Outstanding[] // Relasi untuk histori barang ngutang
 }
 
 model Lokasi_Rak {
@@ -48,14 +49,13 @@ model Batch_Barang {
   nomorator_awal  String?
   nomorator_akhir String?
 
-  status    StatusBatch @default(AVAILABLE) // AVAILABLE, QUARANTINE, DEPLETED
+  status    StatusBatch @default(AVAILABLE)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   barang Master_Barang   @relation(fields: [barangId], references: [id])
   lokasi Lokasi_Rak      @relation(fields: [lokasiId], references: [id])
   mutasi Mutasi_Ledger[]
-
   item_seri Item_Seri[]
 }
 
@@ -63,7 +63,7 @@ model Item_Seri {
   id         String       @id @default(uuid())
   batchId    String
   batch      Batch_Barang @relation(fields: [batchId], references: [id])
-  nomor_seri String // Bisa spesifik atau range (e.g., "0001-1000")
+  nomor_seri String 
   is_used    Boolean      @default(false)
 }
 
@@ -77,7 +77,6 @@ model Mutasi_Ledger {
   saldo_akhir   Int // Snapshot sisa qty di batch ini SETELAH mutasi terjadi
   referensi     String? // Nomor PO, Bukti FPKB, atau ID Requisition
   keterangan    String?
-
   createdAt DateTime @default(now())
   createdBy String // ID User/Petugas
 }
@@ -94,12 +93,16 @@ enum TipeMutasi {
   RETUR
 }
 
-// === ENUM BARU UNTUK FLOW FPKB & OUTSTANDING ===
+// === ENUM BARU UNTUK FLOW ADMIN & GUDANG ===
+enum Role {
+  ADMIN
+  GUDANG
+}
+
 enum StatusPermintaan {
-  DRAFT         // Form FPP di-upload, belum di-generate FPKB
-  RESERVED      // FPKB di-generate SPV, nunggu diambil petugas gudang
-  PICKED        // Sedang disiapkan petugas gudang
-  COMPLETED     // Selesai diserahterimakan
+  PENDING_GUDANG // FPKB digenerate Admin, nunggu di-adjust Staf Gudang
+  PARTIAL        // Diproses Gudang tapi ada barang Outstanding
+  COMPLETED      // Selesai 100% dipenuhi
 }
 
 enum StatusItem {
@@ -109,60 +112,72 @@ enum StatusItem {
   CANCELLED     // Dibatalkan permanen
 }
 
-// --- MODUL FASE 2: PERMINTAAN CABANG (REQUISITION) ---
-
+// --- MODUL PERMINTAAN (REQUISITION) ---
 model Permintaan_Header {
   id            String  @id @default(cuid())
-  nomor_fpp     String  @unique // Diubah dari nomor_request. Contoh input cabang: 070/FPP/LOG/2026
-  nomor_fpkb    String? @unique // Generate Otomatis. Contoh: 00001/FPKB-CTK/LOG/2026
+  nomor_fpp     String  @unique // Form FPP dari Cabang
+  nomor_fpkb    String? @unique // Generate Otomatis oleh Staf Admin
   cabang        String // Tujuan / Unit kerja
   pic_nama      String // Nama yang minta
-  status        StatusPermintaan @default(DRAFT) // Pakai Enum baru
+  
+  status        StatusPermintaan @default(PENDING_GUDANG) // Status awal saat di-generate
   keterangan    String?
-
+  
+  // Tracking siapa yang bikin dan siapa yang eksekusi
+  adminId       String? // User ID Staf Admin yang input
+  gudangId      String? // User ID Staf Gudang yang proses
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   details      Permintaan_Detail[]
-  outstandings Permintaan_Outstanding[] // Relasi ke barang yang kurang (Outstanding)
+  outstandings Permintaan_Outstanding[]
+  
+  admin        User? @relation("AdminPembuat", fields: [adminId], references: [id])
+  gudang       User? @relation("GudangPemroses", fields: [gudangId], references: [id])
 }
 
 model Permintaan_Detail {
   id            String  @id @default(cuid())
   headerId      String
   barangId      String
-  qty_diminta   Int // Jumlah yang direquest cabang
-  qty_disetujui Int      @default(0) // Jumlah yang disetujui SPV
-  status_item   StatusItem @default(OUTSTANDING) // Pakai Enum baru
+  qty_diminta   Int // Jumlah yang di-input Admin dari FPP
+  qty_disetujui Int      @default(0) // Jumlah yang dieksekusi/di-adjust Gudang
+  status_item   StatusItem @default(OUTSTANDING) 
   keterangan    String?
 
   header Permintaan_Header @relation(fields: [headerId], references: [id], onDelete: Cascade)
   barang Master_Barang     @relation(fields: [barangId], references: [id])
 }
 
-// --- TABEL BARU: OUTSTANDING ---
+// --- TABEL OUTSTANDING ---
 model Permintaan_Outstanding {
   id             String   @id @default(uuid())
-  headerId       String   // Nyambung ke Form FPP awal biar gampang dilacak utangnya
+  headerId       String   // Nyambung ke FPKB awal biar gampang dilacak
   header         Permintaan_Header @relation(fields: [headerId], references: [id], onDelete: Cascade)
   
   barangId       String
   barang         Master_Barang @relation(fields: [barangId], references: [id])
   
-  qty_sisa       Int      // Sisa barang yang belum dikirim ke cabang
+  qty_sisa       Int      // Selisih (qty_diminta - qty_disetujui)
   status         StatusItem @default(OUTSTANDING) // Kalau disusulin nanti, jadi FULFILLED
   
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
 
-// --- MODUL FASE 5: SECURITY & AUTH ---
+// --- MODUL SECURITY & AUTH ---
 model User {
   id        String   @id @default(cuid())
   username  String   @unique
   nama      String
-  password  String   // Untuk MVP kita simpan plain text, di production wajib bcrypt!
-  role      String   @default("STAF") // Pilihan: "SPV" atau "STAF"
+  password  String   // Pastikan di-bcrypt pas production
+  role      Role     @default(ADMIN) // Pakai Enum Role
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Relasi balik untuk tracking kerjaan
+  fpkb_dibuat   Permintaan_Header[] @relation("AdminPembuat")
+  fpkb_diproses Permintaan_Header[] @relation("GudangPemroses")
 }

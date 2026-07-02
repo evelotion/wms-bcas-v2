@@ -8,15 +8,15 @@ export async function loginUser(formData: FormData) {
     const username = formData.get("username") as string;
     const password = formData.get("password") as string;
 
-    // --- FITUR AUTO-SEED UNTUK TESTING ---
-    // Kalau database user masih kosong, otomatis buatin 1 akun SPV
+    // --- FITUR AUTO-SEED ---
+    // Buatin 2 akun otomatis sesuai Schema baru kalau DB masih kosong
     const userCount = await prisma.user.count();
     if (userCount === 0) {
       await prisma.user.create({
-        data: { username: "admin", password: "123", nama: "Admin Gudang", role: "SPV" }
+        data: { username: "admin", password: "123", nama: "Staf Admin", role: "ADMIN" }
       });
       await prisma.user.create({
-        data: { username: "staf", password: "123", nama: "Petugas Gudang", role: "STAF" }
+        data: { username: "gudang", password: "123", nama: "Staf Gudang", role: "GUDANG" }
       });
     }
 
@@ -45,4 +45,12 @@ export async function loginUser(formData: FormData) {
 export async function logoutUser() {
   (await cookies()).delete("wms_session");
   return { success: true };
+}
+
+// Tambahan: Fungsi untuk baca session di Client Component
+export async function getSession() {
+  const cookieStore = await cookies();
+  const session = cookieStore.get("wms_session")?.value;
+  if (!session) return null;
+  return JSON.parse(session);
 }
