@@ -15,13 +15,21 @@ export default function CetakBarcodeClient() {
   const sku = searchParams.get("sku") || "SKU-000";
 
   const [printType, setPrintType] = useState<"barcode" | "qrcode">("barcode");
-  const [qrUrl, setQrUrl] = useState(`https://wms-bcas-v2.vercel.app/master/detail/${id}`);
+  const [qrUrl, setQrUrl] = useState("");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       setQrUrl(`${window.location.origin}/master/detail/${id}`);
     }
   }, [id]);
+
+  if (!qrUrl) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+        <div className="text-slate-500 font-bold">Memuat halaman cetak...</div>
+      </div>
+    );
+  }
 
   const handlePrint = () => {
     window.print();
