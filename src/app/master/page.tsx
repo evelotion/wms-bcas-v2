@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getMasterBarang, createMasterBarang, updateMasterBarang } from "./actions";
-import { Plus, Search, Package, ServerCrash, ChevronLeft, ChevronRight, X, Printer, Database, Edit } from "lucide-react";
+import { Plus, Search, Package, ServerCrash, ChevronLeft, ChevronRight, X, Printer, Database, CreditCard as Edit } from "lucide-react";
 import DialogImport from "./DialogImport";
 
 export default function MasterBarangPage() {
@@ -71,8 +71,7 @@ export default function MasterBarangPage() {
   };
 
   const handlePrintBarcode = (item: any) => {
-    const baseUrl = 'https://wms-bcas-v2.vercel.app';
-    const printUrl = `${baseUrl}/master/cetak-barcode/${item.id}?nama=${encodeURIComponent(item.nama)}&sku=${encodeURIComponent(item.sku)}`;
+    const printUrl = `/master/cetak-barcode/${item.id}?nama=${encodeURIComponent(item.nama)}&sku=${encodeURIComponent(item.sku)}`;
     window.open(printUrl, '_blank');
   };
 
