@@ -6,7 +6,7 @@ import fs from 'fs';
 import csv from 'csv-parser';
 import path from 'path';
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 
