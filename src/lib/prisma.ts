@@ -1,32 +1,24 @@
-// src/lib/prisma.ts
 import { PrismaClient } from '@prisma/client';
-import { Pool } from 'pg';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import { PrismaNeon } from '@prisma/adapter-neon';
+import ws from 'ws';
+
+neonConfig.webSocketConstructor = ws;
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 function getConnectionString(): string {
-  // Prioritas: DATABASE_URL > SUPABASE_DB_URL
-  const url = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
-  if (url) return url;
-
-  // Fallback untuk development tanpa database (akan error saat runtime)
-  console.warn('Warning: DATABASE_URL and SUPABASE_DB_URL not found. Database operations will fail.');
-  return 'postgresql://dummy:dummy@localhost:5432/dummy';
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    console.warn('Warning: DATABASE_URL not found. Database operations will fail.');
+    return 'postgresql://dummy:dummy@localhost:5432/dummy';
+  }
+  return url;
 }
 
 const connectionString = getConnectionString();
-
-// Setup Pool untuk koneksi database
-const pool = new Pool({
-  connectionString,
-  // Tambahkan config untuk connection stability
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
-
-const adapter = new PrismaPg(pool);
+const pool = new Pool({ connectionString });
+const adapter = new PrismaNeon(pool);
 
 let prisma: PrismaClient;
 

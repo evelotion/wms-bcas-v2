@@ -2,6 +2,12 @@
 
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
+import { SignJWT, jwtVerify } from "jose";
+
+// Bikin secret key (Paling aman ditaruh di .env nantinya)
+const SECRET_KEY = new TextEncoder().encode(
+  process.env.JWT_SECRET || "wms-bcas-super-secret-key-yang-susah-ditebak"
+);
 
 export async function loginUser(formData: FormData) {
   try {
@@ -9,7 +15,6 @@ export async function loginUser(formData: FormData) {
     const password = formData.get("password") as string;
 
     // --- FITUR AUTO-SEED ---
-    // Buatin 2 akun otomatis sesuai Schema baru kalau DB masih kosong
     const userCount = await prisma.user.count();
     if (userCount === 0) {
       await prisma.user.create({
@@ -26,12 +31,18 @@ export async function loginUser(formData: FormData) {
       return { success: false, error: "Username atau password salah!" };
     }
 
-    // Set Session Cookie (Berlaku 1 hari)
-    const sessionData = JSON.stringify({ id: user.id, nama: user.nama, role: user.role });
-    (await cookies()).set("wms_session", sessionData, {
+    // --- BIKIN JWT TOKEN YANG AMAN ---
+    const token = await new SignJWT({ id: user.id, nama: user.nama, role: user.role })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime("24h") // Berlaku 24 jam
+      .sign(SECRET_KEY);
+
+    // Set Session Cookie
+    (await cookies()).set("wms_session", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24, // 24 jam
+      maxAge: 60 * 60 * 24, 
       path: "/",
     });
 
@@ -47,10 +58,16 @@ export async function logoutUser() {
   return { success: true };
 }
 
-// Tambahan: Fungsi untuk baca session di Client Component
+// Fungsi untuk baca session (sekarang harus di-decrypt dulu)
 export async function getSession() {
   const cookieStore = await cookies();
-  const session = cookieStore.get("wms_session")?.value;
-  if (!session) return null;
-  return JSON.parse(session);
+  const token = cookieStore.get("wms_session")?.value;
+  if (!token) return null;
+
+  try {
+    const { payload } = await jwtVerify(token, SECRET_KEY);
+    return payload; // Isinya: id, nama, role
+  } catch (error) {
+    return null; // Kalau token udah expired / ga valid
+  }
 }

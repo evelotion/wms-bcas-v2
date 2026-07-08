@@ -1,45 +1,73 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+"use server";
 
-export function middleware(request: NextRequest) {
-  const sessionCookie = request.cookies.get('wms_session')?.value;
-  const isLoginPage = request.nextUrl.pathname.startsWith('/login');
-  const path = request.nextUrl.pathname;
+import prisma from "@/lib/prisma";
+import { cookies } from "next/headers";
+import { SignJWT, jwtVerify } from "jose";
 
-  // 1. Belum login, tapi mau akses halaman dalam
-  if (!sessionCookie && !isLoginPage) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
+// Bikin secret key (Paling aman ditaruh di .env nantinya)
+const SECRET_KEY = new TextEncoder().encode(
+  process.env.JWT_SECRET || "wms-bcas-super-secret-key-yang-susah-ditebak"
+);
 
-  // 2. Udah login, tapi mau akses halaman login
-  if (sessionCookie && isLoginPage) {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
+export async function loginUser(formData: FormData) {
+  try {
+    const username = formData.get("username") as string;
+    const password = formData.get("password") as string;
 
-  // 3. ROLE-BASED PROTECTION (Mencegah akses silang)
-  if (sessionCookie) {
-    try {
-      const session = JSON.parse(sessionCookie);
-      
-      // ADMIN tidak boleh akses Inbound dan Outstanding
-      if (session.role === "ADMIN" && (path.startsWith('/inbound') || path.startsWith('/outstanding'))) {
-        return NextResponse.redirect(new URL('/', request.url));
-      }
-      
-      // GUDANG tidak boleh akses Laporan (Opsional, bisa lo sesuaikan)
-      if (session.role === "GUDANG" && path.startsWith('/laporan')) {
-        return NextResponse.redirect(new URL('/', request.url));
-      }
-    } catch (error) {
-      console.error("Session parse error di middleware");
+    // --- FITUR AUTO-SEED ---
+    const userCount = await prisma.user.count();
+    if (userCount === 0) {
+      await prisma.user.create({
+        data: { username: "admin", password: "123", nama: "Staf Admin", role: "ADMIN" }
+      });
+      await prisma.user.create({
+        data: { username: "gudang", password: "123", nama: "Staf Gudang", role: "GUDANG" }
+      });
     }
-  }
 
-  return NextResponse.next();
+    // Cari User
+    const user = await prisma.user.findUnique({ where: { username } });
+    if (!user || user.password !== password) {
+      return { success: false, error: "Username atau password salah!" };
+    }
+
+    // --- BIKIN JWT TOKEN YANG AMAN ---
+    const token = await new SignJWT({ id: user.id, nama: user.nama, role: user.role })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime("24h") // Berlaku 24 jam
+      .sign(SECRET_KEY);
+
+    // Set Session Cookie
+    (await cookies()).set("wms_session", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24, 
+      path: "/",
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Login Error:", error);
+    return { success: false, error: "Terjadi kesalahan sistem." };
+  }
 }
 
-export const config = {
-  matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.svg).*)',
-  ],
-};
+export async function logoutUser() {
+  (await cookies()).delete("wms_session");
+  return { success: true };
+}
+
+// Fungsi untuk baca session (sekarang harus di-decrypt dulu)
+export async function getSession() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("wms_session")?.value;
+  if (!token) return null;
+
+  try {
+    const { payload } = await jwtVerify(token, SECRET_KEY);
+    return payload; // Isinya: id, nama, role
+  } catch (error) {
+    return null; // Kalau token udah expired / ga valid
+  }
+}
