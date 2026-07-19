@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Database, ArrowDownToLine, FileQuestion, FileText, Package2, Bell, Search, LogOut, Archive } from "lucide-react";
+import { LayoutDashboard, Database, ArrowDownToLine, FileQuestion, FileText, Package2, Bell, Search, LogOut, Archive, Package } from "lucide-react";
 import { logoutUser } from "@/app/login/actions";
 
 // Terima props session dari Server Layout
@@ -25,6 +25,7 @@ export default function ClientAppShell({
   // Menu Dinamis (Tanpa pusing mikirin useEffect lagi)
   const menuItems = [
     { name: "Dashboard", icon: LayoutDashboard, path: "/", roles: ["ADMIN", "GUDANG"] },
+    { name: "Inventory (Stok)", icon: Package, path: "/inventory", roles: ["ADMIN", "GUDANG"] },
     { name: "Master Barang", icon: Database, path: "/master", roles: ["ADMIN", "GUDANG"] },
     { name: "Inbound (Masuk)", icon: ArrowDownToLine, path: "/inbound", roles: ["GUDANG"] },
     { name: "Requisition", icon: FileQuestion, path: "/permintaan", roles: ["ADMIN", "GUDANG"] },
