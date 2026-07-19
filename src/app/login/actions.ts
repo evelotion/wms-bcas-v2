@@ -9,6 +9,13 @@ const SECRET_KEY = new TextEncoder().encode(
   process.env.JWT_SECRET || "wms-bcas-super-secret-key-yang-susah-ditebak"
 );
 
+// Bentuk data yang kita simpan di dalam JWT payload
+export interface SessionPayload {
+  id: string;
+  nama: string;
+  role: string;
+}
+
 export async function loginUser(formData: FormData) {
   try {
     const username = formData.get("username") as string;
@@ -66,7 +73,8 @@ export async function getSession() {
 
   try {
     const { payload } = await jwtVerify(token, SECRET_KEY);
-    return payload; // Isinya: id, nama, role
+    // payload dari jose bertipe generic JWTPayload, kita cast ke bentuk yang kita tahu isinya
+    return payload as unknown as SessionPayload;
   } catch (error) {
     return null; // Kalau token udah expired / ga valid
   }
