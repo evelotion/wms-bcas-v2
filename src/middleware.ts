@@ -1,73 +1,56 @@
-"use server";
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { jwtVerify } from 'jose';
 
-import prisma from "@/lib/prisma";
-import { cookies } from "next/headers";
-import { SignJWT, jwtVerify } from "jose";
-
-// Bikin secret key (Paling aman ditaruh di .env nantinya)
+// Secret key harus SAMA PERSIS dengan yang ada di actions.ts
 const SECRET_KEY = new TextEncoder().encode(
   process.env.JWT_SECRET || "wms-bcas-super-secret-key-yang-susah-ditebak"
 );
 
-export async function loginUser(formData: FormData) {
-  try {
-    const username = formData.get("username") as string;
-    const password = formData.get("password") as string;
+export async function middleware(request: NextRequest) {
+  const sessionCookie = request.cookies.get('wms_session')?.value;
+  const isLoginPage = request.nextUrl.pathname.startsWith('/login');
+  const path = request.nextUrl.pathname;
 
-    // --- FITUR AUTO-SEED ---
-    const userCount = await prisma.user.count();
-    if (userCount === 0) {
-      await prisma.user.create({
-        data: { username: "admin", password: "123", nama: "Staf Admin", role: "ADMIN" }
-      });
-      await prisma.user.create({
-        data: { username: "gudang", password: "123", nama: "Staf Gudang", role: "GUDANG" }
-      });
-    }
-
-    // Cari User
-    const user = await prisma.user.findUnique({ where: { username } });
-    if (!user || user.password !== password) {
-      return { success: false, error: "Username atau password salah!" };
-    }
-
-    // --- BIKIN JWT TOKEN YANG AMAN ---
-    const token = await new SignJWT({ id: user.id, nama: user.nama, role: user.role })
-      .setProtectedHeader({ alg: "HS256" })
-      .setIssuedAt()
-      .setExpirationTime("24h") // Berlaku 24 jam
-      .sign(SECRET_KEY);
-
-    // Set Session Cookie
-    (await cookies()).set("wms_session", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24, 
-      path: "/",
-    });
-
-    return { success: true };
-  } catch (error) {
-    console.error("Login Error:", error);
-    return { success: false, error: "Terjadi kesalahan sistem." };
+  // 1. Belum login, tapi mau akses halaman dalam
+  if (!sessionCookie && !isLoginPage) {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
-}
 
-export async function logoutUser() {
-  (await cookies()).delete("wms_session");
-  return { success: true };
-}
-
-// Fungsi untuk baca session (sekarang harus di-decrypt dulu)
-export async function getSession() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("wms_session")?.value;
-  if (!token) return null;
-
-  try {
-    const { payload } = await jwtVerify(token, SECRET_KEY);
-    return payload; // Isinya: id, nama, role
-  } catch (error) {
-    return null; // Kalau token udah expired / ga valid
+  // 2. Udah login, tapi mau akses halaman login
+  if (sessionCookie && isLoginPage) {
+    return NextResponse.redirect(new URL('/', request.url));
   }
+
+  // 3. ROLE-BASED PROTECTION (Udah Aman Pakai JWT)
+  if (sessionCookie) {
+    try {
+      // Decode JWT dengan aman, bakal error kalau token dimanipulasi
+      const { payload } = await jwtVerify(sessionCookie, SECRET_KEY);
+      
+      // ADMIN tidak boleh akses Inbound dan Outstanding
+      if (payload.role === "ADMIN" && (path.startsWith('/inbound') || path.startsWith('/outstanding'))) {
+        return NextResponse.redirect(new URL('/', request.url));
+      }
+      
+      // GUDANG tidak boleh akses Laporan
+      if (payload.role === "GUDANG" && path.startsWith('/laporan')) {
+        return NextResponse.redirect(new URL('/', request.url));
+      }
+    } catch (error) {
+      console.error("JWT Verification Failed di middleware");
+      // Kalau user iseng ngubah isi cookie, buang cookie-nya terus tendang ke login!
+      const response = NextResponse.redirect(new URL('/login', request.url));
+      response.cookies.delete('wms_session');
+      return response;
+    }
+  }
+
+  return NextResponse.next();
 }
+
+export const config = {
+  matcher: [
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.svg).*)',
+  ],
+};

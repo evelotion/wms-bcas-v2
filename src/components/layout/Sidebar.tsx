@@ -6,10 +6,11 @@ export default function Sidebar() {
 
   const menuItems = [
     { name: "Dashboard", path: "/" },
+    { name: "Inventory (Stok)", path: "/inventory" }, // <--- Menu baru ditambahkan di sini
     { name: "Master Barang", path: "/master" },
     { name: "Inbound (Masuk)", path: "/inbound" },
     { name: "Requisition", path: "/permintaan" },
-    { name: "Outstanding", path: "/outstanding" }, // Terpisah di sini
+    { name: "Outstanding", path: "/outstanding" },
     { name: "Manajemen Rak", path: "/rak" },
   ];
 
@@ -25,6 +26,7 @@ export default function Sidebar() {
         
         <nav className="flex flex-col gap-2">
           {menuItems.map((item) => {
+            // Logic ini udah bagus buat deteksi menu aktif (termasuk sub-path nya)
             const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
             return (
               <Link 

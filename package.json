@@ -16,6 +16,7 @@
     "@prisma/adapter-neon": "^5.22.0",
     "@prisma/client": "^5.15.0",
     "@upstash/redis": "^1.38.0",
+    "bufferutil": "^4.1.0",
     "dotenv": "^17.4.2",
     "jose": "^6.2.3",
     "jspdf": "^4.2.1",
@@ -26,6 +27,7 @@
     "react-barcode": "^1.6.1",
     "react-dom": "^18.3.1",
     "react-qr-code": "^2.2.0",
+    "utf-8-validate": "^6.0.6",
     "ws": "^8.21.0",
     "xlsx": "^0.18.5"
   },
