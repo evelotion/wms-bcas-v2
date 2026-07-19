@@ -1,14 +1,16 @@
 import { PrismaClient } from '@prisma/client';
-import { Pool } from 'pg';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import { PrismaNeon } from '@prisma/adapter-neon';
+import ws from 'ws';
 import 'dotenv/config'; 
 import fs from 'fs';
 import csv from 'csv-parser';
 import path from 'path';
 
-const connectionString = process.env.DATABASE_URL;
+neonConfig.webSocketConstructor = ws;
+const connectionString = process.env.DATABASE_URL || "";
 const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
+const adapter = new PrismaNeon(pool);
 
 // Prisma v7 wajib pakai adapter
 const prisma = new PrismaClient({ adapter });
