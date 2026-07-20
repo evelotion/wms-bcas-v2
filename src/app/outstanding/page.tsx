@@ -1,23 +1,20 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { getOutstandingList, resolveOutstandingItem } from "./actions";
+import { getOutstandingList, tutupOutstanding, prosesUlangOutstanding } from "./actions";
 import { getSession } from "@/app/login/actions";
-import { Archive, PackageCheck, Clock, AlertTriangle } from "lucide-react";
+import { Archive, PackageCheck, Clock, AlertTriangle, RefreshCw, XCircle } from "lucide-react";
 
 export default function OutstandingPage() {
   const [outstandingList, setOutstandingList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [userId, setUserId] = useState<string>("");
-  
-  // State untuk nyimpen inputan qty per item
-  const [fulfillQty, setFulfillQty] = useState<Record<string, number>>({});
+  const [userRole, setUserRole] = useState<string>("ADMIN");
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
     getSession().then((session) => {
-      if (session) setUserId(session.id);
+      if (session) setUserRole(session.role);
     });
   }, []);
 
@@ -25,40 +22,38 @@ export default function OutstandingPage() {
     setIsLoading(true);
     const data = await getOutstandingList();
     setOutstandingList(data || []);
-    
-    // Set default value inputan ke maksimal sisa hutang
-    const initQty: Record<string, number> = {};
-    data.forEach(item => { initQty[item.id] = item.qty_sisa; });
-    setFulfillQty(initQty);
-    
     setIsLoading(false);
   };
 
-  const handleQtyChange = (id: string, value: number, max: number) => {
-    // Cegah input melebihi sisa hutang atau minus
-    let val = Math.max(0, value);
-    if (val > max) val = max;
-    setFulfillQty(prev => ({ ...prev, [id]: val }));
-  };
+  const handleTutup = async (item: any) => {
+    if (!confirm(`Tutup permanen outstanding ${item.barang.nama} (${item.qty_sisa} ${item.barang.satuan})? Item ini TIDAK akan disusulkan lagi.`)) return;
 
-  const handleResolve = async (item: any) => {
-    const qtyToFulfill = fulfillQty[item.id];
-    if (qtyToFulfill <= 0) return alert("Jumlah yang disusulkan harus lebih dari 0!");
-
-    if (!confirm(`Susulkan ${qtyToFulfill} ${item.barang.satuan} untuk ${item.barang.nama}?`)) return;
-    
     setProcessingId(item.id);
-    const res = await resolveOutstandingItem(item.id, qtyToFulfill, userId);
-    
+    const res = await tutupOutstanding([item.id]);
     if (res.success) {
-      alert("✅ Berhasil! Silakan ambil barang di lokasi berikut:\n\n" + res.instruksi?.join("\n"));
-      fetchData(); // Refresh data
+      alert("✅ Outstanding ditutup.");
+      fetchData();
     } else {
       alert("❌ Gagal: " + res.error);
     }
-    
     setProcessingId(null);
   };
+
+  const handleProsesUlang = async (item: any) => {
+    if (!confirm(`Terbitkan FPKB baru untuk menyusulkan ${item.barang.nama} (${item.qty_sisa} ${item.barang.satuan})?`)) return;
+
+    setProcessingId(item.id);
+    const res = await prosesUlangOutstanding([item.id]);
+    if (res.success) {
+      alert(`✅ FPKB baru diterbitkan: #${res.nomor_fpkb}\nSilakan buka halaman FPKB untuk proses adjustment.`);
+      fetchData();
+    } else {
+      alert("❌ Gagal: " + res.error);
+    }
+    setProcessingId(null);
+  };
+
+  const canAct = userRole === "ADMIN";
 
   return (
     <div className="w-full space-y-6 pb-10">
@@ -71,7 +66,9 @@ export default function OutstandingPage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-800">Outstanding Barang</h1>
             <p className="text-sm text-slate-500">
-              Daftar hutang pengiriman barang ke cabang akibat stok gudang kosong.
+              {canAct
+                ? "Daftar hutang pengiriman barang ke cabang. Tutup permanen atau terbitkan FPKB susulan untuk diproses ulang Admin Gudang."
+                : "Daftar hutang pengiriman barang ke cabang akibat stok gudang kosong."}
             </p>
           </div>
         </div>
@@ -83,19 +80,18 @@ export default function OutstandingPage() {
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-100/50 text-slate-600 uppercase text-xs font-semibold">
               <tr>
-                <th className="px-6 py-4">Informasi FPKB</th>
+                <th className="px-6 py-4">Informasi FPP / FPKB Asal</th>
                 <th className="px-6 py-4">Barang Ngutang</th>
                 <th className="px-6 py-4 text-center">Sisa Hutang</th>
-                <th className="px-6 py-4 text-center">Qty Disusulkan</th>
-                <th className="px-6 py-4 text-center">Aksi</th>
+                {canAct && <th className="px-6 py-4 text-center">Aksi</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-white/40">
               {isLoading ? (
-                <tr><td colSpan={5} className="text-center py-8">Memuat data outstanding...</td></tr>
+                <tr><td colSpan={4} className="text-center py-8">Memuat data outstanding...</td></tr>
               ) : outstandingList.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-12">
+                  <td colSpan={4} className="text-center py-12">
                     <div className="flex flex-col items-center justify-center text-slate-400">
                       <PackageCheck size={48} className="mb-3 text-emerald-400 opacity-50" />
                       <p className="font-bold text-lg text-slate-500">Gudang Bersih!</p>
@@ -107,8 +103,16 @@ export default function OutstandingPage() {
                 outstandingList.map((item: any) => (
                   <tr key={item.id} className="hover:bg-orange-50/30 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="font-bold text-slate-800">{item.header.nomor_fpkb || item.header.nomor_fpp}</div>
-                      <div className="text-xs font-medium text-slate-500 mt-1">Cabang: {item.header.cabang}</div>
+                      <div className="font-bold text-slate-800">FPP #{item.header.nomor_fpp}</div>
+                      <div className="text-xs font-medium text-slate-500 mt-1">Cabang: {item.header.cabang} · {item.header.wilayah === "JABODETABEK" ? "JABODETABEK" : "NON-JABODETABEK"}</div>
+                      {item.fpkbAsal && (
+                        <div className="text-xs text-slate-400 mt-1">Dari FPKB #{item.fpkbAsal.nomor_fpkb}</div>
+                      )}
+                      {item.fpkbLanjutan && (
+                        <div className="text-xs text-blue-500 flex items-center gap-1 mt-1">
+                          <RefreshCw size={12} /> Sudah diterbitkan FPKB #{item.fpkbLanjutan.nomor_fpkb}
+                        </div>
+                      )}
                       <div className="text-xs text-slate-400 flex items-center gap-1 mt-1">
                         <Clock size={12} /> {new Date(item.createdAt).toLocaleDateString("id-ID")}
                       </div>
@@ -122,26 +126,30 @@ export default function OutstandingPage() {
                         <AlertTriangle size={14} /> {item.qty_sisa} {item.barang.satuan}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <input
-                        type="number"
-                        min="0"
-                        max={item.qty_sisa}
-                        value={fulfillQty[item.id] || 0}
-                        onChange={(e) => handleQtyChange(item.id, parseInt(e.target.value) || 0, item.qty_sisa)}
-                        disabled={processingId === item.id}
-                        className="w-20 px-2 py-1.5 text-center border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none font-bold text-orange-700 bg-white"
-                      />
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() => handleResolve(item)}
-                        disabled={processingId === item.id || fulfillQty[item.id] <= 0}
-                        className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-md shadow-orange-500/20 disabled:opacity-50"
-                      >
-                        {processingId === item.id ? "Memproses..." : "Penuhi"}
-                      </button>
-                    </td>
+                    {canAct && (
+                      <td className="px-6 py-4">
+                        {item.fpkbLanjutanId ? (
+                          <span className="text-xs text-slate-400 italic block text-center">Sudah diproses ulang</span>
+                        ) : (
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleProsesUlang(item)}
+                              disabled={processingId === item.id}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 disabled:opacity-50 flex items-center gap-1"
+                            >
+                              <RefreshCw size={14} /> Proses Ulang
+                            </button>
+                            <button
+                              onClick={() => handleTutup(item)}
+                              disabled={processingId === item.id}
+                              className="bg-slate-200 hover:bg-red-100 hover:text-red-600 text-slate-600 px-3 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1"
+                            >
+                              <XCircle size={14} /> Tutup
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))
               )}

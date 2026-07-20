@@ -1,37 +1,40 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { getDaftarPermintaan, approvePermintaan, getPermintaanFormData, createFppBaru } from "./actions";
+import { getDaftarFpp, getPermintaanFormData, createFppBaru } from "./actions";
 import { getSession } from "@/app/login/actions"; // Panggil session
-import { generateFPKB } from "@/lib/generateFpkb"; 
-import { ClipboardList, CheckCircle, Clock, FilePlus, Trash2, Edit3, ChevronDown, ChevronUp, Plus, X, Save, Search, Lock, ClipboardPaste } from "lucide-react";
-import SearchableSelect from "@/components/SearchableSelect"; 
+import { ClipboardList, CheckCircle, Clock, FilePlus, Trash2, ChevronDown, ChevronUp, Plus, X, Save, Lock, ClipboardPaste, PackageCheck, Archive, Truck } from "lucide-react";
+import SearchableSelect from "@/components/SearchableSelect";
+
+const STATUS_FPKB_LABEL: Record<string, { label: string; className: string }> = {
+  MENUNGGU_ADJUSTMENT: { label: "Menunggu Adjustment", className: "bg-amber-100 text-amber-700" },
+  MENUNGGU_SERAH_TERIMA: { label: "Menunggu Serah Terima", className: "bg-blue-100 text-blue-700" },
+  SELESAI: { label: "Selesai", className: "bg-emerald-100 text-emerald-700" },
+};
 
 export default function RequisitionPage() {
-  const [permintaanList, setPermintaanList] = useState<any[]>([]);
+  const [fppList, setFppList] = useState<any[]>([]);
   const [masterBarang, setMasterBarang] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [processingId, setProcessingId] = useState<string | null>(null);
-  
+
   // State untuk Role Akses
   const [userRole, setUserRole] = useState<string>("ADMIN");
   const [userId, setUserId] = useState<string>("");
 
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  const [adjustments, setAdjustments] = useState<Record<string, number>>({});
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fppItems, setFppItems] = useState([{ barangId: "", qty: 1, satuan: "" }]);
 
-  // --- STATE BARU UNTUK PASTE EXCEL ---
+  // --- STATE PASTE EXCEL ---
   const [showBulk, setShowBulk] = useState(false);
   const [bulkText, setBulkText] = useState("");
 
   useEffect(() => {
     fetchData();
     getSession().then((session) => {
-      if(session) {
+      if (session) {
         setUserRole(session.role);
         setUserId(session.id);
       }
@@ -41,80 +44,16 @@ export default function RequisitionPage() {
   const fetchData = async () => {
     setIsLoading(true);
     const [requests, formData] = await Promise.all([
-      getDaftarPermintaan(),
+      getDaftarFpp(),
       getPermintaanFormData(),
     ]);
-    setPermintaanList(requests || []);
+    setFppList(requests || []);
     setMasterBarang(formData.barang || []);
     setIsLoading(false);
   };
 
-  const toggleRow = (id: string, details: any[]) => {
-    if (expandedRow === id) {
-      setExpandedRow(null);
-    } else {
-      setExpandedRow(id);
-      const initAdj: Record<string, number> = {};
-      details.forEach(d => { initAdj[d.id] = d.qty_diminta; });
-      setAdjustments(initAdj);
-    }
-  };
-
-  const handleQtyChange = (detailId: string, value: number) => {
-    setAdjustments((prev) => ({ ...prev, [detailId]: Math.max(0, value) }));
-  };
-
-  const handleDeleteItem = (detailId: string) => {
-    setAdjustments((prev) => ({ ...prev, [detailId]: 0 }));
-  };
-
-  const handleApprove = async (req: any) => {
-    if (!confirm("Proses FPKB ini? Barang yang dikurangi/dihapus otomatis masuk Outstanding.")) return;
-    setProcessingId(req.id);
-
-    const formattedAdjustments = Object.entries(adjustments).map(
-      ([id, val]) => ({ detailId: id, qtyDisetujui: val })
-    );
-
-    const res = await approvePermintaan(req.id, formattedAdjustments, userId);
-
-    if (res.success && res.rawDetails) {
-      alert(`Approval Berhasil! Nomor FPKB: ${res.nomor_fpkb}`);
-
-      const approvedItems = res.rawDetails.filter((d: any) => d.qty_disetujui > 0);
-      let grandTotal = 0;
-
-      const pdfItems = approvedItems.map((d: any) => {
-        const harga = d.harga_satuan || 0;
-        const totalBarang = d.qty_disetujui * harga;
-        grandTotal += totalBarang;
-        return {
-          kode: d.barang?.sku || "N/A",
-          nama: d.barang?.nama || "Item Unknown",
-          jumlahPack: d.qty_disetujui,
-          jumlahSatuan: `${d.qty_disetujui} ${d.barang?.satuan || "Pcs"}`,
-          hargaSatuan: harga,
-          total: totalBarang,
-          keterangan: "",
-        };
-      });
-
-      generateFPKB({
-        nomorFpkb: res.nomor_fpkb || "DRAFT-FPKB",
-        tglRequest: new Date(req.createdAt).toLocaleDateString("id-ID"),
-        cabang: req.cabang,
-        pic: req.pic_nama || "PIC Cabang",
-        items: pdfItems,
-        grandTotal: grandTotal,
-        pembuat: "Staf Gudang",
-      });
-
-      setExpandedRow(null);
-      fetchData();
-    } else {
-      alert("Error: " + res.error);
-    }
-    setProcessingId(null);
+  const toggleRow = (id: string) => {
+    setExpandedRow(expandedRow === id ? null : id);
   };
 
   const handleAddFppItem = () => setFppItems([...fppItems, { barangId: "", qty: 1, satuan: "" }]);
@@ -132,25 +71,24 @@ export default function RequisitionPage() {
   // --- FUNGSI PASTE EXCEL ---
   const processExcelData = () => {
     if (!bulkText.trim()) return;
-    
+
     const rows = bulkText.split('\n');
     const newItems: any[] = [];
     const notFound: string[] = [];
 
     rows.forEach(row => {
       if (!row.trim()) return;
-      const cols = row.split('\t'); 
-      
+      const cols = row.split('\t');
+
       if (cols.length >= 2) {
-        const identifier = cols[0].trim().toLowerCase(); 
+        const identifier = cols[0].trim().toLowerCase();
         const qty = parseInt(cols[1].trim()) || 1;
-        
-        // Cari di master barang (Cek SKU dulu, kalau gaada cek Nama)
-        const found = masterBarang.find(b => 
-          b.sku.toLowerCase() === identifier || 
+
+        const found = masterBarang.find(b =>
+          b.sku.toLowerCase() === identifier ||
           b.nama.toLowerCase() === identifier
         );
-        
+
         if (found) {
           newItems.push({ barangId: found.id, qty, satuan: found.satuan });
         } else {
@@ -160,15 +98,13 @@ export default function RequisitionPage() {
     });
 
     if (newItems.length > 0) {
-      // Kalau form masih kosong, timpa aja
       if (fppItems.length === 1 && fppItems[0].barangId === "") {
         setFppItems(newItems);
       } else {
-        // Kalau udah ada isinya, tambahin di bawahnya
         setFppItems([...fppItems, ...newItems]);
       }
-      setBulkText(""); 
-      setShowBulk(false); 
+      setBulkText("");
+      setShowBulk(false);
     }
 
     if (notFound.length > 0) {
@@ -186,15 +122,16 @@ export default function RequisitionPage() {
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
     const headerData = {
-      nomor_fpp: formData.get("nomor_fpp") as string,
       cabang: formData.get("cabang") as string,
-      pic_nama: formData.get("pic_nama") as string,
+      wilayah: formData.get("wilayah") as "JABODETABEK" | "NON_JABODETABEK",
+      pic_nama: (formData.get("pic_nama") as string) || undefined,
+      keterangan: (formData.get("keterangan") as string) || undefined,
     };
 
-    const res = await createFppBaru(headerData, validItems, userId); 
+    const res = await createFppBaru(headerData, validItems, userId);
 
     if (res.success) {
-      alert("✅ Dokumen FPP berhasil disimpan dan masuk ke antrean Gudang!");
+      alert(`✅ FPP berhasil disimpan!\nNomor FPP: ${res.nomor_fpp}\nNomor FPKB otomatis: ${res.nomor_fpkb}\n\nFPKB sudah masuk ke antrean Admin Gudang.`);
       setIsModalOpen(false);
       setFppItems([{ barangId: "", qty: 1, satuan: "" }]);
       fetchData();
@@ -213,22 +150,22 @@ export default function RequisitionPage() {
             <ClipboardList size={24} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">Daftar Antrean FPP</h1>
+            <h1 className="text-2xl font-bold text-slate-800">Daftar FPP</h1>
             <p className="text-sm text-slate-500">
-              {userRole === "ADMIN" 
-                ? "Input form PDF cabang ke sistem untuk dikerjakan gudang." 
-                : "Lakukan adjustment dan eksekusi barang yang diminta cabang."}
+              {userRole === "ADMIN"
+                ? "Input form PDF cabang ke sistem — nomor FPP & FPKB otomatis, langsung masuk antrean Admin Gudang."
+                : "Pantau status FPP dan FPKB yang sudah diterbitkan Staf. Proses adjustment dilakukan di halaman FPKB."}
             </p>
           </div>
         </div>
-        
-        {/* HANYA ADMIN YANG BISA TAMBAH FPP */}
+
+        {/* HANYA STAF (ADMIN) YANG BISA TAMBAH FPP */}
         {userRole === "ADMIN" && (
           <button
             onClick={() => setIsModalOpen(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 transition-all"
           >
-            <FilePlus size={18} /> Input No. FPP Baru
+            <FilePlus size={18} /> Input FPP Baru
           </button>
         )}
       </div>
@@ -243,26 +180,37 @@ export default function RequisitionPage() {
                 <th className="px-6 py-4">Tgl Request</th>
                 <th className="px-6 py-4">Cabang Pemohon</th>
                 <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4 text-center">FPKB Terkait</th>
                 <th className="px-6 py-4"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/40">
               {isLoading ? (
-                <tr><td colSpan={5} className="text-center py-8">Memuat data...</td></tr>
-              ) : permintaanList.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-8 text-slate-500">Belum ada antrean dokumen FPP masuk.</td></tr>
+                <tr><td colSpan={6} className="text-center py-8">Memuat data...</td></tr>
+              ) : fppList.length === 0 ? (
+                <tr><td colSpan={6} className="text-center py-8 text-slate-500">Belum ada dokumen FPP masuk.</td></tr>
               ) : (
-                permintaanList.map((req: any) => (
+                fppList.map((req: any) => (
                   <React.Fragment key={req.id}>
-                    <tr onClick={() => toggleRow(req.id, req.details)} className={`hover:bg-blue-50/50 cursor-pointer transition-colors ${expandedRow === req.id ? "bg-blue-50/50" : ""}`}>
+                    <tr onClick={() => toggleRow(req.id)} className={`hover:bg-blue-50/50 cursor-pointer transition-colors ${expandedRow === req.id ? "bg-blue-50/50" : ""}`}>
                       <td className="px-6 py-4 font-bold text-slate-800">{req.nomor_fpp}</td>
                       <td className="px-6 py-4 text-slate-500">{new Date(req.createdAt).toLocaleDateString("id-ID")}</td>
-                      <td className="px-6 py-4 font-medium text-slate-700">{req.cabang} <span className="text-xs font-normal text-slate-400 block">PIC: {req.pic_nama}</span></td>
-                      <td className="px-6 py-4">
-                        <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-md text-xs font-bold flex items-center gap-1 w-fit">
-                          <Clock size={12} /> MENUNGGU GUDANG
-                        </span>
+                      <td className="px-6 py-4 font-medium text-slate-700">
+                        {req.cabang}
+                        <span className="text-xs font-normal text-slate-400 block">{req.wilayah === "JABODETABEK" ? "JABODETABEK" : "NON-JABODETABEK"}{req.pic_nama ? ` · PIC: ${req.pic_nama}` : ""}</span>
                       </td>
+                      <td className="px-6 py-4">
+                        {req.status === "OPEN" ? (
+                          <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-md text-xs font-bold flex items-center gap-1 w-fit">
+                            <Clock size={12} /> OPEN
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-md text-xs font-bold flex items-center gap-1 w-fit">
+                            <CheckCircle size={12} /> CLOSED
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-center text-slate-600 font-semibold">{req.fpkbs?.length || 0}</td>
                       <td className="px-6 py-4 text-right">
                         {expandedRow === req.id ? <ChevronUp className="inline text-slate-400" /> : <ChevronDown className="inline text-slate-400" />}
                       </td>
@@ -270,81 +218,71 @@ export default function RequisitionPage() {
 
                     {expandedRow === req.id && (
                       <tr className="bg-slate-50/50 border-b-2 border-b-blue-100">
-                        <td colSpan={5} className="px-6 py-6">
-                          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-                            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                              {userRole === "GUDANG" ? <><Edit3 size={16} className="text-blue-600" /> Review & Adjustment Item</> : <><Lock size={16} className="text-slate-400" /> Rincian Barang Diminta</>}
-                            </h3>
-                            <table className="w-full text-left text-sm mb-4">
-                              <thead className="border-b border-slate-200 text-slate-500 text-xs">
-                                <tr>
-                                  <th className="pb-2 font-medium">Item Barang</th>
-                                  <th className="pb-2 font-medium w-32 text-center">Permintaan</th>
-                                  {userRole === "GUDANG" && (
-                                    <>
-                                      <th className="pb-2 font-medium w-32 text-center">Disetujui (Adj)</th>
-                                      <th className="pb-2 font-medium w-16 text-center">Aksi</th>
-                                    </>
-                                  )}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {req.details.map((d: any) => {
-                                  const isDeleted = adjustments[d.id] === 0;
-                                  return (
-                                    <tr key={d.id} className={`border-b border-slate-100 last:border-0 ${isDeleted ? "opacity-40 bg-slate-50" : ""}`}>
+                        <td colSpan={6} className="px-6 py-6">
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            {/* RINCIAN BARANG DIMINTA */}
+                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <Lock size={16} className="text-slate-400" /> Rincian Barang Diminta (Target FPP)
+                              </h3>
+                              <table className="w-full text-left text-sm">
+                                <thead className="border-b border-slate-200 text-slate-500 text-xs">
+                                  <tr>
+                                    <th className="pb-2 font-medium">Item Barang</th>
+                                    <th className="pb-2 font-medium w-24 text-center">Diminta</th>
+                                    <th className="pb-2 font-medium w-24 text-center">Terpenuhi</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {req.details.map((d: any) => (
+                                    <tr key={d.id} className="border-b border-slate-100 last:border-0">
                                       <td className="py-3">
-                                        <div className={`font-medium ${isDeleted ? "line-through text-slate-400" : "text-slate-800"}`}>{d.barang.nama}</div>
+                                        <div className="font-medium text-slate-800">{d.barang.nama}</div>
                                         <div className="text-xs text-slate-500">{d.barang.sku}</div>
                                       </td>
                                       <td className="py-3 text-center font-bold text-slate-600">{d.qty_diminta} {d.barang.satuan}</td>
-                                      
-                                      {/* KOLOM KHUSUS GUDANG */}
-                                      {userRole === "GUDANG" && (
-                                        <>
-                                          <td className="py-3 text-center">
-                                            <input
-                                              type="number"
-                                              min="0"
-                                              max={d.qty_diminta}
-                                              value={adjustments[d.id]}
-                                              onChange={(e) => handleQtyChange(d.id, parseInt(e.target.value) || 0)}
-                                              disabled={isDeleted}
-                                              className="w-20 px-2 py-1 text-center border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-bold text-blue-700 bg-slate-50 disabled:bg-slate-200"
-                                            />
-                                          </td>
-                                          <td className="py-3 text-center">
-                                            {!isDeleted ? (
-                                              <button onClick={() => handleDeleteItem(d.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Nol kan Item (Masuk Outstanding)">
-                                                <Trash2 size={16} />
-                                              </button>
-                                            ) : (
-                                              <span className="text-xs font-semibold text-orange-600">Dihapus</span>
-                                            )}
-                                          </td>
-                                        </>
-                                      )}
+                                      <td className="py-3 text-center font-bold text-emerald-600">{d.qty_terpenuhi} {d.barang.satuan}</td>
                                     </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                            
-                            {/* TOMBOL ACTION KHUSUS GUDANG */}
-                            {userRole === "GUDANG" ? (
-                              <div className="flex justify-end pt-2 border-t border-slate-100">
-                                <button
-                                  onClick={() => handleApprove(req)}
-                                  disabled={processingId === req.id}
-                                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-xl text-sm font-bold transition-all shadow-md shadow-emerald-500/30 disabled:opacity-50 flex items-center gap-2"
-                                >
-                                  {processingId === req.id ? <Clock size={16} className="animate-spin" /> : <CheckCircle size={16} />}
-                                  Simpan & Cetak FPKB
-                                </button>
-                              </div>
-                            ) : (
-                               <div className="text-right text-xs text-slate-400 italic">Menunggu eksekusi tim gudang.</div>
-                            )}
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* DAFTAR FPKB */}
+                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <Truck size={16} className="text-blue-600" /> FPKB Terkait
+                              </h3>
+                              {req.fpkbs?.length === 0 ? (
+                                <p className="text-sm text-slate-400 italic">Belum ada FPKB.</p>
+                              ) : (
+                                <div className="space-y-2">
+                                  {req.fpkbs.map((f: any) => {
+                                    const s = STATUS_FPKB_LABEL[f.status] || { label: f.status, className: "bg-slate-100 text-slate-600" };
+                                    return (
+                                      <div key={f.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                        <span className="font-bold text-slate-700">FPKB #{f.nomor_fpkb}</span>
+                                        <span className={`px-2 py-1 rounded-md text-xs font-bold ${s.className}`}>{s.label}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {req.outstandings?.length > 0 && (
+                                <div className="mt-4 pt-4 border-t border-slate-100">
+                                  <h4 className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-2 flex items-center gap-1">
+                                    <Archive size={14} /> Outstanding Aktif
+                                  </h4>
+                                  <p className="text-xs text-slate-500">{req.outstandings.length} item masih menunggu diproses ulang. Kelola di halaman Outstanding.</p>
+                                </div>
+                              )}
+                              {req.status === "CLOSED" && (
+                                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 text-emerald-600 text-sm font-medium">
+                                  <PackageCheck size={16} /> FPP ini sudah selesai/ditutup.
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -372,28 +310,38 @@ export default function RequisitionPage() {
             <div className="p-6 overflow-visible pb-24 max-h-[75vh] overflow-y-auto">
               <form onSubmit={handleSubmitNewFpp} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nomor Dokumen FPP</label>
-                    <input name="nomor_fpp" type="text" required placeholder="Contoh: 154/FPP/LOG/2026" className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm font-medium" />
+                  <div className="md:col-span-2 text-xs text-slate-500 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                    Nomor FPP & FPKB akan digenerate otomatis oleh sistem setelah disimpan.
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Cabang / Unit Kerja</label>
                     <input name="cabang" type="text" required placeholder="Contoh: KC Panakkukang" className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm" />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nama PIC (Pemohon)</label>
-                    <input name="pic_nama" type="text" required placeholder="Contoh: Dwi Bagus Hastomo" className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm" />
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Wilayah</label>
+                    <select name="wilayah" required defaultValue="JABODETABEK" className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm bg-white">
+                      <option value="JABODETABEK">JABODETABEK</option>
+                      <option value="NON_JABODETABEK">NON-JABODETABEK</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nama PIC (Pemohon) — opsional</label>
+                    <input name="pic_nama" type="text" placeholder="Dikosongin dulu kalau belum ada" className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Keterangan — opsional</label>
+                    <input name="keterangan" type="text" placeholder="Catatan tambahan" className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm" />
                   </div>
                 </div>
-                
+
                 {/* --- DETAIL BARANG --- */}
                 <div>
                   <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
                     <label className="block text-sm font-bold text-slate-800">Daftar Barang yang Diminta</label>
                     <div className="flex gap-2">
-                      <button 
-                        type="button" 
-                        onClick={() => setShowBulk(!showBulk)} 
+                      <button
+                        type="button"
+                        onClick={() => setShowBulk(!showBulk)}
                         className={`text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors ${showBulk ? 'bg-slate-200 text-slate-600' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
                       >
                         <ClipboardPaste size={14} /> {showBulk ? "Tutup Paste Excel" : "Paste dari Excel"}
@@ -410,15 +358,15 @@ export default function RequisitionPage() {
                       <p className="text-xs text-emerald-700 mb-2 font-medium">
                         Copy 2 kolom dari Excel (Kolom 1: SKU atau Nama Barang, Kolom 2: Qty), lalu paste di bawah:
                       </p>
-                      <textarea 
+                      <textarea
                         value={bulkText}
                         onChange={(e) => setBulkText(e.target.value)}
                         placeholder={`Contoh:\nSKU-001\t10\nKertas HVS\t5`}
                         className="w-full h-24 text-sm p-3 border border-emerald-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 mb-3 whitespace-pre"
                       />
-                      <button 
-                        type="button" 
-                        onClick={processExcelData} 
+                      <button
+                        type="button"
+                        onClick={processExcelData}
                         className="w-full bg-emerald-600 text-white text-xs font-bold py-2.5 rounded-lg hover:bg-emerald-700 shadow-md shadow-emerald-500/20"
                       >
                         Proses Data Excel
@@ -453,7 +401,7 @@ export default function RequisitionPage() {
                 </div>
                 <div className="pt-4 border-t border-slate-100">
                   <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex justify-center items-center gap-2 transition-all shadow-md shadow-blue-500/30 disabled:opacity-70">
-                    <Save size={18} /> {isSubmitting ? "Menyimpan Dokumen..." : "Simpan FPP ke Antrean (Draft)"}
+                    <Save size={18} /> {isSubmitting ? "Menyimpan Dokumen..." : "Simpan FPP (Auto-generate Nomor)"}
                   </button>
                 </div>
               </form>

@@ -1,18 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Package, ArrowDownRight, ArrowUpRight, TriangleAlert as AlertTriangle, Clock, Activity, ShieldCheck } from "lucide-react";
-import { getDashboardStats } from "./actions"; // Pastikan path ini benar sesuai struktur lo
+import { Package, ArrowDownRight, ArrowUpRight, TriangleAlert as AlertTriangle, Clock, Activity, ShieldCheck, RefreshCw, Truck, ClipboardCheck } from "lucide-react";
+import { getDashboardStats, getFpkbAlerts } from "./actions"; // Pastikan path ini benar sesuai struktur lo
+import { getSession } from "./login/actions";
 
 export default function DashboardPage() {
   const [dbStats, setDbStats] = useState<any>(null);
+  const [fpkbAlerts, setFpkbAlerts] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string>("");
 
   useEffect(() => {
     const fetchStats = async () => {
       const data = await getDashboardStats();
       setDbStats(data);
     };
+    const fetchFpkbAlerts = async () => {
+      const data = await getFpkbAlerts();
+      setFpkbAlerts(data);
+    };
     fetchStats();
+    fetchFpkbAlerts();
+    getSession().then((session) => {
+      if (session) setUserRole(session.role);
+    });
   }, []);
 
   const stats = [
@@ -136,6 +147,38 @@ export default function DashboardPage() {
           </div>
         </div>
 
+      </div>
+
+      {/* Alert Alur FPP -> FPKB */}
+      <div className="glass-panel p-6 rounded-2xl">
+        <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <ClipboardCheck className="text-blue-500" size={20} /> Alert FPP &amp; FPKB
+          </h3>
+        </div>
+        <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${userRole === "GUDANG" ? "md:[&>*:nth-child(1)]:order-3" : ""}`}>
+          <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 flex items-center gap-4">
+            <div className="p-2.5 bg-emerald-100 rounded-lg text-emerald-600"><RefreshCw size={20} /></div>
+            <div>
+              <p className="text-2xl font-black text-slate-800">{fpkbAlerts === null ? <Loader /> : fpkbAlerts.outstandingBisaDiprosesCount}</p>
+              <p className="text-xs font-semibold text-slate-500">Outstanding siap diproses ulang (stok sudah cukup)</p>
+            </div>
+          </div>
+          <div className="p-4 bg-amber-50/50 rounded-xl border border-amber-100 flex items-center gap-4">
+            <div className="p-2.5 bg-amber-100 rounded-lg text-amber-600"><ClipboardCheck size={20} /></div>
+            <div>
+              <p className="text-2xl font-black text-slate-800">{fpkbAlerts === null ? <Loader /> : fpkbAlerts.fpkbMenungguAdjustmentCount}</p>
+              <p className="text-xs font-semibold text-slate-500">FPKB menunggu adjustment Admin Gudang</p>
+            </div>
+          </div>
+          <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 flex items-center gap-4">
+            <div className="p-2.5 bg-blue-100 rounded-lg text-blue-600"><Truck size={20} /></div>
+            <div>
+              <p className="text-2xl font-black text-slate-800">{fpkbAlerts === null ? <Loader /> : fpkbAlerts.fpkbBelumSerahTerimaCount}</p>
+              <p className="text-xs font-semibold text-slate-500">FPKB belum lengkap dokumen serah terima</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

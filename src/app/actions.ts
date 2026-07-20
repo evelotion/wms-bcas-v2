@@ -47,3 +47,41 @@ export async function getDashboardStats() {
     lowStockAlerts: lowStockAlerts.slice(0, 5), // Ambil 5 teratas untuk list
   };
 }
+
+// === ALERT UNTUK ALUR FPP -> FPKB ===
+// Dipanggil dari dashboard, dipakai baik oleh Staf maupun Admin Gudang (role beda,
+// filter tampilan beda, tapi datanya dari sini semua).
+export async function getFpkbAlerts() {
+  // 1. Outstanding yang sekarang stoknya udah cukup buat diproses ulang (restock alert)
+  const outstandingList = await prisma.permintaan_Outstanding.findMany({
+    where: { status: 'OUTSTANDING' },
+    include: { barang: { include: { batches: { select: { qty_sisa: true } } } }, header: true },
+  });
+
+  const outstandingBisaDiproses = outstandingList
+    .map((o) => {
+      const totalStokSekarang = o.barang.batches.reduce((sum, b) => sum + b.qty_sisa, 0);
+      return { ...o, totalStokSekarang };
+    })
+    .filter((o: any) => o.totalStokSekarang >= o.qty_sisa);
+
+  // 2. FPKB yang udah di-adjustment tapi dokumen serah terima belum diupload
+  const fpkbBelumSerahTerima = await prisma.fpkb.findMany({
+    where: { status: 'MENUNGGU_SERAH_TERIMA' },
+    include: { header: true },
+    orderBy: { updatedAt: 'asc' },
+  });
+
+  // 3. FPKB baru yang belum di-adjustment sama sekali (antrean Admin Gudang)
+  const fpkbMenungguAdjustment = await prisma.fpkb.count({
+    where: { status: 'MENUNGGU_ADJUSTMENT' },
+  });
+
+  return {
+    outstandingBisaDiprosesCount: outstandingBisaDiproses.length,
+    outstandingBisaDiproses: outstandingBisaDiproses.slice(0, 10),
+    fpkbBelumSerahTerimaCount: fpkbBelumSerahTerima.length,
+    fpkbBelumSerahTerima: fpkbBelumSerahTerima.slice(0, 10),
+    fpkbMenungguAdjustmentCount: fpkbMenungguAdjustment,
+  };
+}

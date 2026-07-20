@@ -3,8 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Database, ArrowDownToLine, FileQuestion, FileText, Package2, Bell, Search, LogOut, Archive, Package } from "lucide-react";
+import { LayoutDashboard, Database, ArrowDownToLine, FileQuestion, FileText, Package2, Bell, Search, LogOut, Archive, Package, ClipboardCheck } from "lucide-react";
 import { logoutUser } from "@/app/login/actions";
+
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: "Staf",
+  GUDANG: "Admin Gudang",
+};
 
 // Terima props session dari Server Layout
 export default function ClientAppShell({ 
@@ -29,7 +34,8 @@ export default function ClientAppShell({
     { name: "Master Barang", icon: Database, path: "/master", roles: ["ADMIN", "GUDANG"] },
     { name: "Inbound (Masuk)", icon: ArrowDownToLine, path: "/inbound", roles: ["GUDANG"] },
     { name: "Requisition", icon: FileQuestion, path: "/permintaan", roles: ["ADMIN", "GUDANG"] },
-    { name: "Outstanding", icon: Archive, path: "/outstanding", roles: ["GUDANG"] },
+    { name: "FPKB", icon: ClipboardCheck, path: "/fpkb", roles: ["ADMIN", "GUDANG"] },
+    { name: "Outstanding", icon: Archive, path: "/outstanding", roles: ["ADMIN", "GUDANG"] },
     { name: "Laporan", icon: FileText, path: "/laporan", roles: ["ADMIN", "GUDANG"] },
   ];
 
@@ -76,7 +82,7 @@ export default function ClientAppShell({
               <div className="flex items-center gap-3 cursor-pointer" onClick={() => setDropdownOpen(!dropdownOpen)}>
                 <div className="text-right hidden md:block">
                   <p className="text-sm font-bold text-slate-700">{session ? session.nama : "Guest"}</p>
-                  <p className="text-xs text-slate-500">{session ? `Role: ${session.role}` : "..."}</p>
+                  <p className="text-xs text-slate-500">{session ? ROLE_LABEL[session.role] || session.role : "..."}</p>
                 </div>
                 <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-full flex items-center justify-center shadow-md text-white font-bold">
                   {session ? session.nama.substring(0, 2).toUpperCase() : "??"}

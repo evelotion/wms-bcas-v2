@@ -2,187 +2,163 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getNextSequenceNumber } from "@/lib/sequence";
 
 export async function getPermintaanFormData() {
   const barang = await prisma.master_Barang.findMany({ orderBy: { nama: 'asc' } });
   return { barang };
 }
 
-// 1. ADMIN & GUDANG: Ambil daftar yang masih nunggu diproses gudang
-export async function getDaftarPermintaan(): Promise<any[]> {
+// STAF: Ambil daftar semua FPP (buat dashboard Staf - lihat status keseluruhan tiap FPP)
+export async function getDaftarFpp(): Promise<any[]> {
   return await prisma.permintaan_Header.findMany({
-    where: { status: 'PENDING_GUDANG' }, // Disesuaikan dengan Enum Baru
-    include: { details: { include: { barang: true } } },
-    orderBy: { createdAt: 'desc' }
+    include: {
+      details: { include: { barang: true } },
+      fpkbs: { include: { items: true } },
+      outstandings: { where: { status: 'OUTSTANDING' } },
+    },
+    orderBy: { createdAt: 'desc' },
   });
 }
 
-// 2. GUDANG: Ambil daftar utang barang
-export async function getOutstandingList(): Promise<any[]> {
-  return await prisma.permintaan_Outstanding.findMany({
-    where: { status: 'OUTSTANDING' },
-    include: { barang: true, header: true },
-    orderBy: { createdAt: 'desc' }
-  });
-}
-
-// 3. ADMIN: Simpan form PDF jadi Draft (PENDING_GUDANG)
-export async function createFppBaru(headerData: any, detailsData: { barangId: string, qty: number }[], adminId?: string) {
+// STAF: Input FPP dari PDF email Cabang. FPP ini LANGSUNG jadi FPKB pertamanya
+// (nomor FPP & nomor FPKB sama-sama digenerate di sini, sesuai alur: "FPP pure
+// berubah jadi FPKB, yang proses itu Staf").
+export async function createFppBaru(
+  headerData: { cabang: string; wilayah: 'JABODETABEK' | 'NON_JABODETABEK'; pic_nama?: string; keterangan?: string },
+  detailsData: { barangId: string; qty: number }[],
+  adminId?: string
+) {
   try {
-    const existing = await prisma.permintaan_Header.findUnique({
-      where: { nomor_fpp: headerData.nomor_fpp }
-    });
-
-    if (existing) {
-      throw new Error("Nomor FPP ini sudah pernah diinput sebelumnya!");
+    if (detailsData.length === 0) {
+      throw new Error("Minimal 1 barang harus diisi.");
     }
 
-    await prisma.permintaan_Header.create({
+    const nomorFpp = await getNextSequenceNumber("FPP");
+    const nomorFpkb = await getNextSequenceNumber("FPKB");
+
+    const header = await prisma.permintaan_Header.create({
       data: {
-        nomor_fpp: headerData.nomor_fpp,
+        nomor_fpp: nomorFpp,
         cabang: headerData.cabang,
-        pic_nama: headerData.pic_nama,
-        status: 'PENDING_GUDANG', // Disesuaikan Enum Baru
-        adminId: adminId || null, // Tracking siapa adminnya
+        wilayah: headerData.wilayah,
+        pic_nama: headerData.pic_nama || null,
+        keterangan: headerData.keterangan || null,
+        status: 'OPEN',
+        adminId: adminId || null,
         details: {
-          create: detailsData.map(d => ({
+          create: detailsData.map((d) => ({
             barangId: d.barangId,
             qty_diminta: d.qty,
-            qty_disetujui: 0,
-            status_item: 'OUTSTANDING'
-          }))
-        }
-      }
+            qty_terpenuhi: 0,
+            status_item: 'OUTSTANDING',
+          })),
+        },
+        fpkbs: {
+          create: {
+            nomor_fpkb: nomorFpkb,
+            status: 'MENUNGGU_ADJUSTMENT',
+            items: {
+              create: detailsData.map((d) => ({
+                barangId: d.barangId,
+                qty_diminta: d.qty,
+                qty_realisasi: 0,
+                status_item: 'OUTSTANDING',
+              })),
+            },
+          },
+        },
+      },
+      include: { fpkbs: true },
     });
 
     revalidatePath("/permintaan");
-    return { success: true };
+    revalidatePath("/fpkb");
+    return { success: true, nomor_fpp: nomorFpp, nomor_fpkb: nomorFpkb, headerId: header.id };
   } catch (error: any) {
-    return { success: false, error: error.message || "Gagal menyimpan FPP Baru." };
+    return { success: false, error: error.message || "Gagal menyimpan FPP baru." };
   }
 }
 
-// 4. GUDANG: Eksekusi / Approve Permintaan
-export async function approvePermintaan(
-  headerId: string, 
-  adjustments: { detailId: string, qtyDisetujui: number }[],
-  gudangId?: string
-): Promise<{ success: boolean; instruksi?: string[]; nomor_fpkb?: string; error?: string; rawDetails?: any[] }> {
+// STAF: Tutup permanen sisa outstanding (nggak dilanjutkan). Ini keputusan bisnis
+// Staf, bukan Admin Gudang.
+export async function tutupOutstanding(outstandingIds: string[]) {
   try {
-    let generatedFpkb = "";
-    let instruksi: string[] = [];
-    let rawDetails: any[] = [];
-
     await prisma.$transaction(async (tx: any) => {
-      const header = await tx.permintaan_Header.findUnique({
-        where: { id: headerId },
-        include: { details: { include: { barang: true } } }
-      });
-
-      if (!header) throw new Error("Data form FPP tidak ditemukan!");
-      if (header.status !== 'PENDING_GUDANG') throw new Error("Form ini sudah diproses!");
-
-      // GENERATE NOMOR FPKB
-      const currentYear = new Date().getFullYear();
-      const lastReq = await tx.permintaan_Header.findFirst({
-        where: { nomor_fpkb: { endsWith: `/FPKB-CTK/LOG/${currentYear}` } },
-        orderBy: { nomor_fpkb: 'desc' }
-      });
-
-      let nextNum = 1;
-      if (lastReq && lastReq.nomor_fpkb) {
-        nextNum = parseInt(lastReq.nomor_fpkb.split('/')[0]) + 1;
-      }
-      generatedFpkb = `${String(nextNum).padStart(5, '0')}/FPKB-CTK/LOG/${currentYear}`;
-
-      let adaYangNgutang = false; // Flag penentu status akhir FPKB
-
-      // PROSES POTONG STOK SESUAI ADJUSTMENT
-      for (const detail of header.details) {
-        const adj = adjustments.find(a => a.detailId === detail.id);
-        const qtyApproved = adj ? adj.qtyDisetujui : detail.qty_diminta;
-        
-        let qtyToProcess = qtyApproved;
-        let qtyDapat = 0;
-        let totalHargaSistem = 0; 
-
-        if (qtyToProcess > 0) {
-          const availableBatches = await tx.batch_Barang.findMany({
-            where: { barangId: detail.barangId, qty_sisa: { gt: 0 }, status: 'AVAILABLE' },
-            orderBy: { tanggal_masuk: 'asc' },
-            include: { lokasi: true }
-          });
-
-          for (const batch of availableBatches) {
-            if (qtyToProcess <= 0) break;
-            const potong = Math.min(batch.qty_sisa, qtyToProcess);
-            qtyToProcess -= potong;
-            qtyDapat += potong;
-            totalHargaSistem += potong * (batch.harga_satuan || 0);
-
-            const sisaDiRak = batch.qty_sisa - potong;
-            await tx.batch_Barang.update({
-              where: { id: batch.id },
-              data: { qty_sisa: sisaDiRak, status: sisaDiRak <= 0 ? 'DEPLETED' : 'AVAILABLE' }
-            });
-
-            instruksi.push(`Ambil ${potong} ${detail.barang.satuan} [${detail.barang.sku}] dari Rak ${batch.lokasi.lorong}-${batch.lokasi.rak}`);
-
-            await tx.mutasi_Ledger.create({
-              data: {
-                batchId: batch.id, tipe_mutasi: 'OUTBOUND', qty_perubahan: potong,
-                saldo_akhir: sisaDiRak, referensi: generatedFpkb,
-                keterangan: `RESERVED untuk Cabang ${header.cabang}`, createdBy: gudangId || 'SYSTEM_GUDANG'
-              }
-            });
-          }
-        }
-
-        // LEMPAR SISA KE OUTSTANDING
-        const qtyNgutang = detail.qty_diminta - qtyDapat;
-        let finalStatusItem: 'FULFILLED' | 'PARTIAL' | 'OUTSTANDING' = 'FULFILLED';
-        
-        if (qtyNgutang > 0) {
-          adaYangNgutang = true;
-          finalStatusItem = qtyDapat > 0 ? 'PARTIAL' : 'OUTSTANDING';
-          
-          await tx.permintaan_Outstanding.create({
-            data: {
-              headerId: header.id,
-              barangId: detail.barangId,
-              qty_sisa: qtyNgutang,
-              status: 'OUTSTANDING'
-            }
-          });
-        }
-
-        const updatedDetail = await tx.permintaan_Detail.update({
-          where: { id: detail.id },
-          data: { qty_disetujui: qtyDapat, status_item: finalStatusItem },
-          include: { barang: true }
+      for (const id of outstandingIds) {
+        const os = await tx.permintaan_Outstanding.update({
+          where: { id },
+          data: { status: 'CANCELLED' },
         });
+        // Kalau semua outstanding di FPP ini udah nggak ada yang OUTSTANDING lagi -> CLOSED
+        const sisaOutstanding = await tx.permintaan_Outstanding.count({
+          where: { headerId: os.headerId, status: 'OUTSTANDING' },
+        });
+        if (sisaOutstanding === 0) {
+          await tx.permintaan_Header.update({
+            where: { id: os.headerId },
+            data: { status: 'CLOSED' },
+          });
+        }
+      }
+    });
+    revalidatePath("/permintaan");
+    revalidatePath("/outstanding");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Gagal menutup outstanding." };
+  }
+}
 
-        const harga_satuan_aktual = qtyDapat > 0 ? totalHargaSistem / qtyDapat : 0;
-        rawDetails.push({ ...updatedDetail, harga_satuan: harga_satuan_aktual });
+// STAF: Terbitkan FPKB baru buat nutupin outstanding yang dipilih (masih terikat FPP asal)
+export async function prosesUlangOutstanding(outstandingIds: string[]) {
+  try {
+    if (outstandingIds.length === 0) throw new Error("Pilih minimal 1 barang outstanding.");
+
+    const outstandingRows = await prisma.permintaan_Outstanding.findMany({
+      where: { id: { in: outstandingIds }, status: 'OUTSTANDING' },
+    });
+    if (outstandingRows.length === 0) throw new Error("Barang outstanding tidak ditemukan / sudah diproses.");
+
+    // Pastikan semua dari FPP yang sama (1 FPKB baru = 1 FPP)
+    const headerIds = new Set(outstandingRows.map((o) => o.headerId));
+    if (headerIds.size > 1) throw new Error("Outstanding yang dipilih harus dari FPP yang sama.");
+    const headerId = outstandingRows[0].headerId;
+
+    const nomorFpkb = await getNextSequenceNumber("FPKB");
+
+    const result = await prisma.$transaction(async (tx: any) => {
+      const newFpkb = await tx.fpkb.create({
+        data: {
+          nomor_fpkb: nomorFpkb,
+          headerId,
+          status: 'MENUNGGU_ADJUSTMENT',
+          items: {
+            create: outstandingRows.map((o) => ({
+              barangId: o.barangId,
+              qty_diminta: o.qty_sisa,
+              qty_realisasi: 0,
+              status_item: 'OUTSTANDING',
+            })),
+          },
+        },
+      });
+
+      for (const o of outstandingRows) {
+        await tx.permintaan_Outstanding.update({
+          where: { id: o.id },
+          data: { fpkbLanjutanId: newFpkb.id },
+        });
       }
 
-      // UPDATE STATUS HEADER (Kalau ada yg ngutang jadi PARTIAL, kalau lengkap COMPLETED)
-      const finalStatusHeader = adaYangNgutang ? 'PARTIAL' : 'COMPLETED';
-
-      await tx.permintaan_Header.update({
-        where: { id: headerId },
-        data: { 
-          status: finalStatusHeader, 
-          nomor_fpkb: generatedFpkb,
-          gudangId: gudangId || null
-        }
-      });
+      return newFpkb;
     });
 
     revalidatePath("/permintaan");
     revalidatePath("/outstanding");
-    return { success: true, instruksi, nomor_fpkb: generatedFpkb, rawDetails };
+    revalidatePath("/fpkb");
+    return { success: true, nomor_fpkb: result.nomor_fpkb, fpkbId: result.id };
   } catch (error: any) {
-    return { success: false, error: error?.message || "Gagal memproses persetujuan." };
+    return { success: false, error: error.message || "Gagal menerbitkan FPKB baru." };
   }
 }

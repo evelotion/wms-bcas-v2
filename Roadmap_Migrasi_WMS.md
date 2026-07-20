@@ -1,92 +1,95 @@
-# Roadmap Migrasi Data — WMS BCAS v2
+# Roadmap — WMS BCAS v2
 
-Checklist ini rangkuman dari semua yang udah dibahas. Centang manual tiap kelar satu langkah. Urutannya penting — jangan lompat ke Fase 3 kalau Fase 1-2 belum beres.
-
----
-
-## ✅ Sudah Selesai
-- [x] Fix Vercel build error — cast JWT payload jadi `SessionPayload` di `src/app/login/actions.ts`
+Living checklist. Ada 2 bagian besar: migrasi data histori (udah dianggap kelar) dan enhancement alur FPP → FPKB → Outstanding (lagi jalan).
 
 ---
 
-## ✅ Fase 1 — Persiapan File
+# Bagian 1 — Migrasi Data Histori (CSV → Database)
 
-- [x] Cari file `Database_Barang.csv` asli di laptop (yang diupload ke chat ini)
-- [x] Copy ke **root folder project** (sejajar `package.json`, bukan di dalam subfolder)
-- [x] Pastikan nama file persis: `Database_Barang.csv`
+## ✅ Semua Fase Selesai
 
-## ⏭️ Fase 2 — Bersihin Data CSV (opsional tapi disarankan sebelum import) — DI-SKIP
+- [x] Fix Vercel build error — cast JWT payload jadi `SessionPayload`
+- [x] **Fase 1** — Pindahin `Database_Barang.csv` ke root folder project
+- [x] **Fase 2** — Bersihin data CSV (IDSS-001, IDSS-505, IDSS-128 cascading, IDSS-401, ILSS-301, PRO-140)
+- [x] **Fase 3** — Implementasi 6 perubahan kode (schema, package.json, master/actions.ts, master/page.tsx, import-actions.ts fix, seed-histori-barang.ts)
+- [x] **Fase 4** — `npx prisma db push` + `npx prisma generate` + `npm run seed:histori`
+- [x] **Fase 5** — Verifikasi di `/master` & `/master/detail/[id]` (termasuk IDSS-508 jadi 731 pcs 1 batch, PRO-143 digabung/dipisah sesuai keputusan lo)
+- [x] **Fase 6** — Commit & push, Vercel auto-deploy sukses
+- [x] **Fase 7 (ongoing)** — Sistem siap terima PO harga beda per SKU lewat alur inbound normal (FIFO otomatis)
 
-Prioritas **SEDANG** (isi saldo yang kosong):
-- [ ] `IDSS-001` baris 17 — isi Sisa Stock jadi `45`
-- [ ] `IDSS-505` baris 219 — isi Sisa Stock jadi `96`
-- [ ] `IDSS-128` baris 78 s/d 83 — hitung ulang: 285, 279, 264, 254, 245, **241** (bukan 243)
-- [ ] `IDSS-401` baris 213 — perbaiki tanggal & Sisa Stock jadi `197`
+---
 
-Prioritas **RENDAH** (cross-check ke dokumen fisik):
-- [ ] `ILSS-301` baris 261 — cek dokumen FPP 129, kemungkinan harusnya `30` bukan `32`
-- [ ] `PRO-140` baris 288 — cek dokumen FPP 138, kemungkinan harusnya `27` bukan `35`
+# Bagian 2 — Enhancement Alur FPP → FPKB → Outstanding
 
-**Status:** di-skip sesuai opsi yang disediakan roadmap ini. Konsekuensinya sudah kekonfirmasi pas Fase 5, dan sudah **dikoreksi manual langsung di database** (bukan edit CSV, karena re-import CSV penuh berisiko duplikat data):
-- `IDSS-001`: 0 → **45**
-- `IDSS-505`: 0 → **96**
-- `IDSS-128`: 243 → **241**
-- `IDSS-401`: 11 → **197**
-- `ILSS-301`: 32 → **30** (pakai angka dugaan roadmap, belum cross-check dokumen fisik FPP 129)
-- `PRO-140`: 34 → **27** (pakai angka dugaan roadmap, belum cross-check dokumen fisik FPP 138)
+## ✅ Fase 1 — Konfirmasi Alur & Arsitektur
 
-Tiap koreksi tercatat sebagai 1 baris `Mutasi_Ledger` dengan referensi "Koreksi Manual Fase 2 Roadmap" biar ada jejaknya.
+- [x] Konfirmasi alur bisnis final:
+  Cabang kirim FPP via email PDF → **Staf** input ke website (auto-generate nomor FPKB) → masuk ke **Admin Gudang** → Admin Gudang adjustment/realisasi & potong stok → barang tereleminasi jadi **Outstanding** (FPP+FPKB asal tetap ke-link) → serah terima (JABODETABEK: FPKB aja / NON-JABODETABEK: FPKB + BAST + no. Airwaybill) → Admin Gudang upload dokumen signed
+- [x] Konfirmasi role mapping: `ADMIN` = Staf, `GUDANG` = Admin Gudang (nggak perlu role baru)
+- [x] Review dokumen contoh: FPKB dengan kolom Realisasi (2 halaman) & form BAST
+- [x] Sepakat: semua nomor urut (FPP/FPKB/BAST) mulai dari `1`, nama-nama orang dikosongin dulu
 
-## ✅ Fase 3 — Implementasi Kode (via Claude Code di VS Code)
+## ⚠️ Fase 2 — Schema & Logic Inti (DIDESAIN, BELUM DITERAPKAN KE REPO)
 
-6 perubahan, urutannya bebas tapi semua harus kelar sebelum Fase 4:
-- [x] `prisma/schema.prisma` — tambah `satuan_besar`, `isi_per_satuan_besar`, `minimum_order_besar` ke `Master_Barang`
-- [x] `package.json` — tambah script `"seed:histori": "tsx prisma/seed-histori-barang.ts"`
-- [x] `src/app/master/actions.ts` — create/update simpan field baru
-- [x] `src/app/master/page.tsx` — kolom & form konversi kemasan
-- [x] `src/app/master/import-actions.ts` — ganti `nomorator:` jadi `nomorator_awal:`
-- [x] `prisma/seed-histori-barang.ts` — file baru (parser ledger + multi-batch/lot logic)
+**Update 20 Jul:** Dicek langsung ke `github.com/evelotion/wms-bcas-v2` — ternyata repo masih di kondisi SEBELUM restrukturisasi ini. Yang ada di repo sekarang cuma versi awal (`generateFpkb.ts` buat cetak PDF client-side, dibuat sengaja sebagai eksperimen duluan) yang jalan di atas schema LAMA. Semua desain di bawah ini masih di sandbox chat, siap dipindah:
 
-## ✅ Fase 4 — Migrasi Database
+- [x] `prisma/schema.prisma` — desain restrukturisasi total (model `Fpkb`, `Fpkb_Item`, `Sequence_Counter`, enum `StatusFpp`/`StatusFpkb`/`WilayahCabang`) — **belum di-apply**
+- [x] `src/lib/sequence.ts` — desain helper penomoran sequential — **belum dibuat di repo**
+- [x] `src/app/permintaan/actions.ts` — desain rewrite sisi Staf — **repo masih pakai versi lama** (`getDaftarPermintaan`, `approvePermintaan` dengan nomor FPP diketik manual & format FPKB asli)
+- [x] `src/app/fpkb/actions.ts` — desain sisi Admin Gudang — **belum ada folder `/fpkb` di repo sama sekali**
+- [x] `src/app/outstanding/actions.ts` — desain query gabungan — **repo masih pakai `resolveOutstandingItem` (fulfill langsung, bukan ticketing/reissue FPKB)**
+- [x] `src/app/actions.ts` — desain `getFpkbAlerts()` — **belum ada di repo**
 
-Jalankan **berurutan**, jangan skip:
+## 🔲 Fase 2.5 — Sinkronisasi Desain ke Repo (LANGKAH BERIKUTNYA)
+
+- [ ] Apply schema baru (replace total isi `prisma/schema.prisma` bagian Permintaan/Fpkb)
+- [ ] Buat `src/lib/sequence.ts`
+- [ ] Replace `src/app/permintaan/actions.ts` dengan versi baru
+- [ ] Buat folder baru `src/app/fpkb/` + `actions.ts`
+- [ ] Replace `src/app/outstanding/actions.ts` dengan versi baru
+- [ ] Tambah `getFpkbAlerts()` ke `src/app/actions.ts`
+- [ ] **Rework `src/lib/generateFpkb.ts`** — ini yang paling penting buat dibersihin:
+  - [ ] Hapus nama hardcoded ("Novianti Siswandi", "Ikbal Kurnia", "Dian .....") — ganti jadi kosong/parameter opsional sesuai kesepakatan awal
+  - [ ] Tambah kolom **Realisasi** di tabel PDF (sesuai `Contoh_FPKB_-_Cetakan_dengan_Realisasi_kolom.pdf`)
+  - [ ] Sesuaikan input data: sekarang generate dari `Fpkb` + `Fpkb_Item`, bukan `Permintaan_Header` + `Permintaan_Detail`
+  - [ ] Buat fungsi baru serupa buat generate BAST (khusus `NON_JABODETABEK`)
+- [ ] Rewrite `permintaan/page.tsx` — hapus input manual nomor FPP, ganti jadi auto-generate; hapus pemanggilan `approvePermintaan` lama
+- [ ] Rewrite `outstanding/page.tsx` — ganti dari "fulfill langsung" jadi tombol "Tutup" / "Proses Ulang (terbitkan FPKB baru)"
+- [ ] Halaman baru `src/app/fpkb/page.tsx` — antrean Admin Gudang, upload serah terima
+- [ ] Update dashboard (`src/app/page.tsx`) — tampilkan alert dari `getFpkbAlerts()`
+- [ ] Update label role di UI: `ADMIN` → "Staf", `GUDANG` → "Admin Gudang"
+
+## 🔲 Fase 4 — Migrasi Database
+
 ```bash
+npx prisma validate   # WAJIB - sandbox Claude nggak bisa validasi network-restricted
 npx prisma db push
 npx prisma generate
-npm run seed:histori
 ```
-- [x] `prisma db push` sukses (schema baru ter-apply)
-- [x] `prisma generate` sukses
-- [x] `seed:histori` jalan sampai selesai — baca log akhirnya:
-  - `Barang baru (Master)` → **114** ✓ sesuai
-  - `Baris di-skip` → **0** ✓ sesuai
-  - `⚠️ [PERLU DICEK]` → **7 baris** ✓ sesuai (IDSS-201, IDSS-207, IDSS-508 x2, IDSS-806, PRO-143 x2)
+- [ ] `prisma validate` clean
+- [ ] `prisma db push` sukses — **catatan:** bakal ada prompt data-loss untuk kolom lama yang dihapus (`Permintaan_Header.nomor_fpkb`, `gudangId`, `Permintaan_Detail.qty_disetujui`). Aman di-accept kalau belum ada data produksi FPP/FPKB asli.
+- [ ] `prisma generate` sukses
 
-## 🔲 Fase 5 — Verifikasi di Website
+## 🔲 Fase 5 — Testing Alur End-to-End
 
-- [x] Total Master Barang di database = **114** ✓ (dicek query, belum dicek visual di browser `/master`)
-- [x] `IDSS-508` — **DIUBAH dari rencana awal**: bukan digabung 731 dalam 1 batch, tapi dipecah manual jadi **3 lot terpisah** (harga Rp3.467,50 / Rp10.467,50 / Rp11.043,40 sesuai teks di nama), qty masing-masing **0** (sengaja dikosongkan, nunggu diisi manual)
-- [x] `PRO-143` — **diputuskan dipisah** (bukan digabung 11 pcs): 3 batch terpisah (Hitam/Coklat/Kream), harga tetap Rp49.000, qty masing-masing **0** (nunggu diisi manual)
-- [x] `IDSS-128` — sudah dikoreksi ke **241**
-- [x] `IDSS-001`, `IDSS-505`, `IDSS-401`, `ILSS-301`, `PRO-140` — sudah dikoreksi (lihat Fase 2)
-- [x] Buka `/master` di browser — **verifikasi parsial**: dev server jalan, auth (JWT) berhasil, halaman render tanpa error, kolom "Satuan Besar" muncul di markup. **Belum** bisa screenshot visual penuh / cek modal & isi tabel dinamis karena environment ini nggak ada `chromium-cli`/Playwright ter-install (belum diinstal, nunggu izin user kalau mau verifikasi visual lebih dalam)
-- [ ] Spot-check 2-3 SKU lain random, bandingin sama CSV aslinya
+- [ ] Input FPP baru (Staf) → cek nomor FPKB otomatis ke-generate
+- [ ] Adjustment FPKB (Admin Gudang) → cek stok kepotong FIFO dengan benar
+- [ ] Barang kurang → cek muncul di Outstanding dengan info FPP+FPKB asal
+- [ ] Reissue outstanding → cek FPKB baru ke-generate, tetap ke-link ke FPP yang sama
+- [ ] Tutup outstanding (reject) → cek status FPP jadi `CLOSED` kalau nggak ada outstanding lain
+- [ ] Serah terima JABODETABEK → cek upload FPKB signed aja cukup, status jadi `SELESAI`
+- [ ] Serah terima NON-JABODETABEK → cek wajib isi Airwaybill + upload BAST juga
+- [ ] Alert dashboard — restock yang nutupin outstanding muncul, FPKB nunggak serah-terima muncul di Admin Gudang
 
 ## 🔲 Fase 6 — Commit & Deploy
 
 ```bash
 git add .
-git commit -m "feat: konversi satuan kemasan + migrasi histori barang"
+git commit -m "feat: alur FPP ke FPKB dengan multi-FPKB per FPP, outstanding ticketing, serah terima JABODETABEK/non"
 git push
 ```
-- [ ] Push berhasil
-- [ ] Vercel auto-deploy sukses (build seharusnya lolos karena bug JWT & `nomorator` udah kefix)
-
-## 🔲 Fase 7 — Ke Depan (Catatan, Bukan Tugas Sekarang)
-
-- Kalau ada PO baru masuk dengan **harga beda** dari batch existing untuk SKU yang sama, tinggal proses lewat alur inbound normal — sistem (`approvePermintaan`) udah otomatis FIFO per-batch berdasarkan `tanggal_masuk`, jadi nggak perlu ubah kode lagi.
-- `WMS-TRANSIT-HISTORI-01` adalah lokasi rak sementara buat hasil migrasi — pertimbangkan pindahin ke rak asli kalau udah sempat.
+- [ ] Push berhasil, Vercel build sukses
 
 ---
 
-**Status saat ini:** kalau lo baru sampai titik ini, langkah paling dekat berikutnya adalah **Fase 1** — pindahin CSV ke folder project.
+**Status saat ini:** Bagian 1 kelar. Bagian 2 baru sampai **desain di sandbox chat** — repo aslinya masih di versi awal (`generateFpkb.ts` eksperimen + schema lama). Langkah berikutnya: **Fase 2.5 (Sinkronisasi)** — pindahin semua desain ke repo, termasuk bersihin nama hardcoded & nambah kolom Realisasi di PDF generator. Disarankan dikerjain bareng Claude Code di VS Code, kasih tau dia buat baca `src/lib/generateFpkb.ts` yang ada sekarang sebagai referensi struktur PDF, terus modifikasi sesuai spesifikasi di atas — jangan bikin dari nol biar layout PDF-nya tetap konsisten.

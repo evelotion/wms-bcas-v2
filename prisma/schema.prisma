@@ -11,21 +11,22 @@ datasource db {
 
 // --- MASTER DATA ---
 model Master_Barang {
-  id                   String   @id @default(uuid())
-  sku                  String   @unique
-  nama                 String
-  kategori             String
-  satuan               String // Pcs, Buku, Rim, dll
-  satuan_besar         String?
-  isi_per_satuan_besar Int      @default(1)
-  minimum_order_besar  Int?
-  batas_minimum        Int      @default(0)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id            String   @id @default(uuid())
+  sku           String   @unique
+  nama          String
+  kategori      String
+  satuan        String // Satuan terkecil/atomic, contoh: Lembar, Pcs, Set
+  satuan_besar  String? // Satuan kemasan/besar, contoh: Box, Pack, Rim
+  isi_per_satuan_besar Int @default(1) // Konversi: 1 satuan_besar = berapa satuan (kecil)
+  minimum_order_besar  Int? // Minimum qty order, dalam satuan_besar
+  batas_minimum Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   batches           Batch_Barang[]
   permintaanDetails Permintaan_Detail[]
   outstandings      Permintaan_Outstanding[] // Relasi untuk histori barang ngutang
+  fpkbItems         Fpkb_Item[]
 }
 
 model Lokasi_Rak {
@@ -53,12 +54,12 @@ model Batch_Barang {
   nomorator_akhir String?
 
   status    StatusBatch @default(AVAILABLE)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  barang    Master_Barang   @relation(fields: [barangId], references: [id])
-  lokasi    Lokasi_Rak      @relation(fields: [lokasiId], references: [id])
-  mutasi    Mutasi_Ledger[]
+  barang Master_Barang   @relation(fields: [barangId], references: [id])
+  lokasi Lokasi_Rak      @relation(fields: [lokasiId], references: [id])
+  mutasi Mutasi_Ledger[]
   item_seri Item_Seri[]
 }
 
@@ -80,8 +81,8 @@ model Mutasi_Ledger {
   saldo_akhir   Int // Snapshot sisa qty di batch ini SETELAH mutasi terjadi
   referensi     String? // Nomor PO, Bukti FPKB, atau ID Requisition
   keterangan    String?
-  createdAt     DateTime   @default(now())
-  createdBy     String // ID User/Petugas
+  createdAt DateTime @default(now())
+  createdBy String // ID User/Petugas
 }
 
 enum StatusBatch {
@@ -102,50 +103,66 @@ enum Role {
   GUDANG
 }
 
-enum StatusPermintaan {
-  PENDING_GUDANG // FPKB digenerate Admin, nunggu di-adjust Staf Gudang
-  PARTIAL // Diproses Gudang tapi ada barang Outstanding
-  COMPLETED // Selesai 100% dipenuhi
+enum StatusFpp {
+  OPEN   // Masih ada item yang outstanding & belum diputuskan final
+  CLOSED // Semua item fulfilled, ATAU sisanya sudah di-reject Staf
+}
+
+enum StatusFpkb {
+  MENUNGGU_ADJUSTMENT   // Baru digenerate Staf, nunggu Admin Gudang cek stok & realisasi
+  MENUNGGU_SERAH_TERIMA // Realisasi udah ditentukan & barang dikeluarkan, nunggu dokumen diupload
+  SELESAI               // Dokumen serah terima (FPKB signed, +BAST kalau NON_JABODETABEK) lengkap
+}
+
+enum WilayahCabang {
+  JABODETABEK
+  NON_JABODETABEK
 }
 
 enum StatusItem {
-  FULFILLED // Dipenuhi 100%
-  PARTIAL // Dipenuhi sebagian, sisanya masuk outstanding
-  OUTSTANDING // 0% dipenuhi (stok kosong)
-  CANCELLED // Dibatalkan permanen
+  FULFILLED     // Dipenuhi 100%
+  PARTIAL       // Dipenuhi sebagian, sisanya masuk outstanding
+  OUTSTANDING   // 0% dipenuhi (stok kosong)
+  CANCELLED     // Dibatalkan permanen (di-reject Staf, nggak dilanjutkan)
+}
+
+// Counter buat penomoran sementara (mulai dari 1). Nanti kalau format resmi udah
+// fix, tinggal ganti cara format-nya di src/lib/sequence.ts tanpa ubah data lama.
+model Sequence_Counter {
+  id      String @id // "FPP" | "FPKB" | "BAST"
+  current Int    @default(0)
 }
 
 // --- MODUL PERMINTAAN (REQUISITION) ---
+// 1 FPP = 1 permintaan dari Cabang. Bisa punya BANYAK Fpkb (FPKB awal + FPKB
+// susulan tiap kali outstanding-nya diproses ulang setelah restock).
 model Permintaan_Header {
-  id         String  @id @default(cuid())
-  nomor_fpp  String  @unique // Form FPP dari Cabang
-  nomor_fpkb String? @unique // Generate Otomatis oleh Staf Admin
-  cabang     String // Tujuan / Unit kerja
-  pic_nama   String // Nama yang minta
+  id            String   @id @default(cuid())
+  nomor_fpp     String   @unique // Sequential sementara ("1","2",...)
+  cabang        String
+  wilayah       WilayahCabang @default(JABODETABEK)
+  pic_nama      String?  // Dikosongin dulu sampai data resmi ada
+  keterangan    String?
+  status        StatusFpp @default(OPEN)
 
-  status     StatusPermintaan @default(PENDING_GUDANG) // Status awal saat di-generate
-  keterangan String?
-
-  // Tracking siapa yang bikin dan siapa yang eksekusi
-  adminId  String? // User ID Staf Admin yang input
-  gudangId String? // User ID Staf Gudang yang proses
+  adminId       String? // Staf yang input FPP ini
+  admin         User?   @relation("StafInputFpp", fields: [adminId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   details      Permintaan_Detail[]
+  fpkbs        Fpkb[]
   outstandings Permintaan_Outstanding[]
-
-  admin  User? @relation("AdminPembuat", fields: [adminId], references: [id])
-  gudang User? @relation("GudangPemroses", fields: [gudangId], references: [id])
 }
 
+// Rincian barang yang diminta di FPP (target keseluruhan, lintas semua FPKB)
 model Permintaan_Detail {
-  id            String     @id @default(cuid())
+  id            String  @id @default(cuid())
   headerId      String
   barangId      String
-  qty_diminta   Int // Jumlah yang di-input Admin dari FPP
-  qty_disetujui Int        @default(0) // Jumlah yang dieksekusi/di-adjust Gudang
+  qty_diminta   Int // Jumlah yang tercantum di FPP asli
+  qty_terpenuhi Int      @default(0) // Akumulasi realisasi dari SEMUA Fpkb terkait FPP ini
   status_item   StatusItem @default(OUTSTANDING)
   keterangan    String?
 
@@ -153,17 +170,66 @@ model Permintaan_Detail {
   barang Master_Barang     @relation(fields: [barangId], references: [id])
 }
 
+// Satu instance FPKB (bisa lebih dari satu per FPP)
+model Fpkb {
+  id         String     @id @default(cuid())
+  nomor_fpkb String     @unique // Sequential sementara
+  headerId   String
+  header     Permintaan_Header @relation(fields: [headerId], references: [id], onDelete: Cascade)
+
+  status     StatusFpkb @default(MENUNGGU_ADJUSTMENT)
+
+  gudangId   String? // Admin Gudang yang proses adjustment & serah terima
+  gudang     User?   @relation("AdminGudangProses", fields: [gudangId], references: [id])
+
+  // Serah terima
+  nomor_bast           String?   // Cuma dipakai kalau wilayah NON_JABODETABEK
+  nomor_airwaybill     String?   // Cuma dipakai kalau wilayah NON_JABODETABEK
+  file_fpkb_signed     String?   @db.Text // base64 file FPKB yang sudah ditandatangani
+  file_bast_signed     String?   @db.Text // base64 file BAST yang sudah ditandatangani
+  tanggal_serah_terima DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items Fpkb_Item[]
+  outstandingSebagaiPenyebab Permintaan_Outstanding[] @relation("FpkbPenyebab")
+  outstandingSebagaiPenutup  Permintaan_Outstanding[] @relation("FpkbPenutup")
+}
+
+// Rincian barang PADA satu FPKB spesifik (bisa subset dari Permintaan_Detail,
+// misal cuma barang yang outstanding di FPKB sebelumnya)
+model Fpkb_Item {
+  id            String     @id @default(cuid())
+  fpkbId        String
+  fpkb          Fpkb @relation(fields: [fpkbId], references: [id], onDelete: Cascade)
+
+  barangId      String
+  barang        Master_Barang @relation(fields: [barangId], references: [id])
+
+  qty_diminta   Int // Qty yang coba dipenuhi lewat FPKB ini
+  qty_realisasi Int        @default(0) // Qty yang beneran dikeluarkan Admin Gudang
+  status_item   StatusItem @default(OUTSTANDING)
+  keterangan    String?
+}
+
 // --- TABEL OUTSTANDING ---
 model Permintaan_Outstanding {
-  id       String            @id @default(uuid())
-  headerId String // Nyambung ke FPKB awal biar gampang dilacak
+  id       String @id @default(uuid())
+  headerId String // FPP asal, biar gampang dilacak
   header   Permintaan_Header @relation(fields: [headerId], references: [id], onDelete: Cascade)
+
+  fpkbAsalId String? // FPKB yang menyebabkan outstanding ini muncul
+  fpkbAsal   Fpkb?   @relation("FpkbPenyebab", fields: [fpkbAsalId], references: [id])
+
+  fpkbLanjutanId String? // FPKB baru yang dipakai buat nutupin outstanding ini (kalau udah diproses ulang)
+  fpkbLanjutan   Fpkb?   @relation("FpkbPenutup", fields: [fpkbLanjutanId], references: [id])
 
   barangId String
   barang   Master_Barang @relation(fields: [barangId], references: [id])
 
-  qty_sisa Int // Selisih (qty_diminta - qty_disetujui)
-  status   StatusItem @default(OUTSTANDING) // Kalau disusulin nanti, jadi FULFILLED
+  qty_sisa Int
+  status   StatusItem @default(OUTSTANDING) // OUTSTANDING | FULFILLED | CANCELLED (di-reject Staf)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -171,16 +237,16 @@ model Permintaan_Outstanding {
 
 // --- MODUL SECURITY & AUTH ---
 model User {
-  id       String @id @default(cuid())
-  username String @unique
-  nama     String
-  password String // Pastikan di-bcrypt pas production
-  role     Role   @default(ADMIN) // Pakai Enum Role
+  id        String   @id @default(cuid())
+  username  String   @unique
+  nama      String
+  password  String   // Pastikan di-bcrypt pas production
+  role      Role     @default(ADMIN) // ADMIN = Staf | GUDANG = Admin Gudang
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relasi balik untuk tracking kerjaan
-  fpkb_dibuat   Permintaan_Header[] @relation("AdminPembuat")
-  fpkb_diproses Permintaan_Header[] @relation("GudangPemroses")
+  fpp_dibuat    Permintaan_Header[] @relation("StafInputFpp")
+  fpkb_diproses Fpkb[]              @relation("AdminGudangProses")
 }

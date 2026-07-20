@@ -28,8 +28,8 @@ export async function middleware(request: NextRequest) {
       // Decode JWT dengan aman, bakal error kalau token dimanipulasi
       const { payload } = await jwtVerify(sessionCookie, SECRET_KEY);
       
-      // ADMIN tidak boleh akses Inbound dan Outstanding
-      if (payload.role === "ADMIN" && (path.startsWith('/inbound') || path.startsWith('/outstanding'))) {
+      // ADMIN (Staf) tidak boleh akses Inbound (khusus Admin Gudang)
+      if (payload.role === "ADMIN" && path.startsWith('/inbound')) {
         return NextResponse.redirect(new URL('/', request.url));
       }
       
