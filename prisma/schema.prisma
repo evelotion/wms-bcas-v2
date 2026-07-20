@@ -20,6 +20,8 @@ model Master_Barang {
   isi_per_satuan_besar Int @default(1) // Konversi: 1 satuan_besar = berapa satuan (kecil)
   minimum_order_besar  Int? // Minimum qty order, dalam satuan_besar
   batas_minimum Int      @default(0)
+  kode_gl       String? // Kode akun GL, contoh "1442301"
+  keterangan_gl String? // Contoh "BARANG CETAKAN"
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

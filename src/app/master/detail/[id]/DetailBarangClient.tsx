@@ -38,9 +38,19 @@ export default function DetailBarangClient({ id }: { id: string }) {
       <div className="glass-panel p-6 rounded-2xl border-l-4 border-l-blue-500 bg-gradient-to-br from-white to-slate-50">
         <div className="flex justify-between items-start">
           <div>
-            <div className="text-sm font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-full w-fit mb-3">SKU: {barang.sku}</div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="text-sm font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-full w-fit">SKU: {barang.sku}</div>
+              {barang.kode_gl && (
+                <div className="text-sm font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full w-fit font-mono" title={barang.keterangan_gl || undefined}>
+                  GL: {barang.kode_gl}
+                </div>
+              )}
+            </div>
             <h2 className="text-3xl font-black text-slate-800">{barang.nama}</h2>
             <p className="text-slate-500 font-medium mt-1">Kategori: {barang.kategori} | Batas Min: {barang.batas_minimum} {barang.satuan}</p>
+            {barang.keterangan_gl && (
+              <p className="text-slate-400 text-xs font-medium mt-1">Keterangan GL: {barang.keterangan_gl}</p>
+            )}
           </div>
           <div className="text-right bg-white p-4 rounded-xl shadow-sm border border-slate-100 min-w-[120px]">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Stok</p>

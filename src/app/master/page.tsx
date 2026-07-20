@@ -121,6 +121,7 @@ export default function MasterBarangPage() {
                 <th className="px-6 py-4">SKU</th>
                 <th className="px-6 py-4">Nama Barang</th>
                 <th className="px-6 py-4">Kategori</th>
+                <th className="px-6 py-4">Kode GL</th>
                 <th className="px-6 py-4">Satuan</th>
                 <th className="px-6 py-4">Satuan Besar</th>
                 <th className="px-6 py-4 text-center">Batas Min.</th>
@@ -130,11 +131,11 @@ export default function MasterBarangPage() {
             <tbody className="divide-y divide-white/40">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-8 text-slate-500">Memuat data...</td>
+                  <td colSpan={8} className="text-center py-8 text-slate-500">Memuat data...</td>
                 </tr>
               ) : filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-slate-500 flex flex-col items-center justify-center">
+                  <td colSpan={8} className="text-center py-12 text-slate-500 flex flex-col items-center justify-center">
                     <ServerCrash className="text-slate-300 mb-2" size={32} />
                     Belum ada data barang. Silakan tambah baru.
                   </td>
@@ -145,6 +146,13 @@ export default function MasterBarangPage() {
                     <td className="px-6 py-4 font-mono font-bold text-blue-700">{item.sku}</td>
                     <td className="px-6 py-4 font-medium text-slate-800">{item.nama}</td>
                     <td className="px-6 py-4"><span className="bg-slate-200/70 text-slate-700 px-2 py-1 rounded-md text-xs">{item.kategori}</span></td>
+                    <td className="px-6 py-4">
+                      {item.kode_gl ? (
+                        <span className="font-mono text-xs text-slate-700" title={item.keterangan_gl || undefined}>{item.kode_gl}</span>
+                      ) : (
+                        <span className="text-slate-300 text-xs">-</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4">{item.satuan}</td>
                     <td className="px-6 py-4">{item.satuan_besar ? `${item.satuan_besar} (isi ${item.isi_per_satuan_besar})` : "-"}</td>
                     <td className="px-6 py-4 text-center font-bold text-slate-700">{item.batas_minimum}</td>
