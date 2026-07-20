@@ -209,6 +209,7 @@ model Fpkb_Item {
 
   qty_diminta   Int // Qty yang coba dipenuhi lewat FPKB ini
   qty_realisasi Int        @default(0) // Qty yang beneran dikeluarkan Admin Gudang
+  harga_satuan  Float      @default(0) // Snapshot harga saat FPKB ini dibuat (dari batch FIFO terlama)
   status_item   StatusItem @default(OUTSTANDING)
   keterangan    String?
 }

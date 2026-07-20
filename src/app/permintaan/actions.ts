@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getNextSequenceNumber } from "@/lib/sequence";
+import { getHargaTerkiniBarang } from "@/lib/pricing";
 
 export async function getPermintaanFormData() {
   const barang = await prisma.master_Barang.findMany({ orderBy: { nama: 'asc' } });
@@ -37,6 +38,11 @@ export async function createFppBaru(
     const nomorFpp = await getNextSequenceNumber("FPP");
     const nomorFpkb = await getNextSequenceNumber("FPKB");
 
+    const hargaMap: Record<string, number> = {};
+    for (const d of detailsData) {
+      hargaMap[d.barangId] = await getHargaTerkiniBarang(d.barangId);
+    }
+
     const header = await prisma.permintaan_Header.create({
       data: {
         nomor_fpp: nomorFpp,
@@ -63,6 +69,7 @@ export async function createFppBaru(
                 barangId: d.barangId,
                 qty_diminta: d.qty,
                 qty_realisasi: 0,
+                harga_satuan: hargaMap[d.barangId] || 0,
                 status_item: 'OUTSTANDING',
               })),
             },
@@ -127,6 +134,11 @@ export async function prosesUlangOutstanding(outstandingIds: string[]) {
 
     const nomorFpkb = await getNextSequenceNumber("FPKB");
 
+    const hargaMap: Record<string, number> = {};
+    for (const o of outstandingRows) {
+      hargaMap[o.barangId] = await getHargaTerkiniBarang(o.barangId);
+    }
+
     const result = await prisma.$transaction(async (tx: any) => {
       const newFpkb = await tx.fpkb.create({
         data: {
@@ -138,6 +150,7 @@ export async function prosesUlangOutstanding(outstandingIds: string[]) {
               barangId: o.barangId,
               qty_diminta: o.qty_sisa,
               qty_realisasi: 0,
+              harga_satuan: hargaMap[o.barangId] || 0,
               status_item: 'OUTSTANDING',
             })),
           },

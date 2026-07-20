@@ -72,18 +72,24 @@ export default function FpkbPage() {
     const pdfItems = fpkb.items.map((it: any) => {
       const adj = itemsWithRealisasi.find((a) => a.itemId === it.id);
       const realisasi = adj ? adj.qtyRealisasi : it.qty_realisasi;
+      const isiPerPack = it.barang?.isi_per_satuan_besar || 0;
+      const hasSatuanBesar = !!it.barang?.satuan_besar && isiPerPack > 0;
+      const hargaSatuan = it.harga_satuan || 0;
+      const total = hargaSatuan * it.qty_diminta;
       return {
         kode: it.barang?.sku || "N/A",
         nama: it.barang?.nama || "Item Unknown",
-        jumlahPack: it.qty_diminta,
+        jumlahPack: hasSatuanBesar ? Math.ceil(it.qty_diminta / isiPerPack) : "-",
         jumlahSatuan: `${it.qty_diminta} ${it.barang?.satuan || "Pcs"}`,
-        hargaSatuan: 0,
-        total: 0,
-        realisasiPack: realisasi,
+        hargaSatuan,
+        total,
+        realisasiPack: hasSatuanBesar ? Math.ceil(realisasi / isiPerPack) : "-",
         realisasiSatuan: `${realisasi} ${it.barang?.satuan || "Pcs"}`,
         keterangan: "",
       };
     });
+
+    const grandTotal = pdfItems.reduce((sum: number, item: any) => sum + item.total, 0);
 
     generateFPKB({
       nomorFpkb: fpkb.nomor_fpkb,
@@ -92,7 +98,7 @@ export default function FpkbPage() {
       cabang: fpkb.header?.cabang || "-",
       pic: fpkb.header?.pic_nama,
       items: pdfItems,
-      grandTotal: 0,
+      grandTotal,
     });
 
     if (fpkb.header?.wilayah === "NON_JABODETABEK") {
