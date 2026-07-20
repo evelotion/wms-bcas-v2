@@ -19,6 +19,11 @@ export async function createMasterBarang(formData: FormData) {
         nama: formData.get("nama") as string,
         kategori: formData.get("kategori") as string,
         satuan: formData.get("satuan") as string,
+        satuan_besar: (formData.get("satuan_besar") as string) || null,
+        isi_per_satuan_besar: Number(formData.get("isi_per_satuan_besar")) || 1,
+        minimum_order_besar: formData.get("minimum_order_besar")
+          ? Number(formData.get("minimum_order_besar"))
+          : null,
         batas_minimum: Number(formData.get("batas_minimum")),
       },
     });
@@ -38,6 +43,11 @@ export async function updateMasterBarang(id: string, formData: FormData) {
         nama: formData.get("nama") as string,
         kategori: formData.get("kategori") as string,
         satuan: formData.get("satuan") as string,
+        satuan_besar: (formData.get("satuan_besar") as string) || null,
+        isi_per_satuan_besar: Number(formData.get("isi_per_satuan_besar")) || 1,
+        minimum_order_besar: formData.get("minimum_order_besar")
+          ? Number(formData.get("minimum_order_besar"))
+          : null,
         batas_minimum: Number(formData.get("batas_minimum")),
       },
     });

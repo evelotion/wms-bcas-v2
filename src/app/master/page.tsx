@@ -122,6 +122,7 @@ export default function MasterBarangPage() {
                 <th className="px-6 py-4">Nama Barang</th>
                 <th className="px-6 py-4">Kategori</th>
                 <th className="px-6 py-4">Satuan</th>
+                <th className="px-6 py-4">Satuan Besar</th>
                 <th className="px-6 py-4 text-center">Batas Min.</th>
                 <th className="px-6 py-4 text-center">Aksi</th>
               </tr>
@@ -129,11 +130,11 @@ export default function MasterBarangPage() {
             <tbody className="divide-y divide-white/40">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-8 text-slate-500">Memuat data...</td>
+                  <td colSpan={7} className="text-center py-8 text-slate-500">Memuat data...</td>
                 </tr>
               ) : filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-slate-500 flex flex-col items-center justify-center">
+                  <td colSpan={7} className="text-center py-12 text-slate-500 flex flex-col items-center justify-center">
                     <ServerCrash className="text-slate-300 mb-2" size={32} />
                     Belum ada data barang. Silakan tambah baru.
                   </td>
@@ -145,6 +146,7 @@ export default function MasterBarangPage() {
                     <td className="px-6 py-4 font-medium text-slate-800">{item.nama}</td>
                     <td className="px-6 py-4"><span className="bg-slate-200/70 text-slate-700 px-2 py-1 rounded-md text-xs">{item.kategori}</span></td>
                     <td className="px-6 py-4">{item.satuan}</td>
+                    <td className="px-6 py-4">{item.satuan_besar ? `${item.satuan_besar} (isi ${item.isi_per_satuan_besar})` : "-"}</td>
                     <td className="px-6 py-4 text-center font-bold text-slate-700">{item.batas_minimum}</td>
                     <td className="px-6 py-4 text-center flex items-center justify-center gap-1">
                       <button onClick={() => handleOpenModal(item)} className="p-2 text-slate-500 hover:bg-blue-100 hover:text-blue-700 rounded-lg transition-colors" title="Edit Barang">
@@ -227,7 +229,23 @@ export default function MasterBarangPage() {
                     <input name="satuan" type="text" required defaultValue={editingItem?.satuan || ""} placeholder="Contoh: Rim" className="w-full border border-slate-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
                   </div>
                 </div>
-                
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Satuan Besar (Opsional)</label>
+                    <input name="satuan_besar" type="text" defaultValue={editingItem?.satuan_besar || ""} placeholder="Contoh: Dus" className="w-full border border-slate-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Isi per Satuan Besar</label>
+                    <input name="isi_per_satuan_besar" type="number" min="1" defaultValue={editingItem?.isi_per_satuan_besar || "1"} className="w-full border border-slate-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Minimum Order (Satuan Besar, Opsional)</label>
+                  <input name="minimum_order_besar" type="number" min="0" defaultValue={editingItem?.minimum_order_besar ?? ""} className="w-full border border-slate-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Batas Minimum Stok</label>
                   <input name="batas_minimum" type="number" min="0" required defaultValue={editingItem?.batas_minimum || "0"} className="w-full border border-slate-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />

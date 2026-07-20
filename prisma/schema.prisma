@@ -11,14 +11,17 @@ datasource db {
 
 // --- MASTER DATA ---
 model Master_Barang {
-  id            String   @id @default(uuid())
-  sku           String   @unique
-  nama          String
-  kategori      String
-  satuan        String // Pcs, Buku, Rim, dll
-  batas_minimum Int      @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                   String   @id @default(uuid())
+  sku                  String   @unique
+  nama                 String
+  kategori             String
+  satuan               String // Pcs, Buku, Rim, dll
+  satuan_besar         String?
+  isi_per_satuan_besar Int      @default(1)
+  minimum_order_besar  Int?
+  batas_minimum        Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   batches           Batch_Barang[]
   permintaanDetails Permintaan_Detail[]
@@ -50,12 +53,12 @@ model Batch_Barang {
   nomorator_akhir String?
 
   status    StatusBatch @default(AVAILABLE)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
-  barang Master_Barang   @relation(fields: [barangId], references: [id])
-  lokasi Lokasi_Rak      @relation(fields: [lokasiId], references: [id])
-  mutasi Mutasi_Ledger[]
+  barang    Master_Barang   @relation(fields: [barangId], references: [id])
+  lokasi    Lokasi_Rak      @relation(fields: [lokasiId], references: [id])
+  mutasi    Mutasi_Ledger[]
   item_seri Item_Seri[]
 }
 
@@ -63,7 +66,7 @@ model Item_Seri {
   id         String       @id @default(uuid())
   batchId    String
   batch      Batch_Barang @relation(fields: [batchId], references: [id])
-  nomor_seri String 
+  nomor_seri String
   is_used    Boolean      @default(false)
 }
 
@@ -77,8 +80,8 @@ model Mutasi_Ledger {
   saldo_akhir   Int // Snapshot sisa qty di batch ini SETELAH mutasi terjadi
   referensi     String? // Nomor PO, Bukti FPKB, atau ID Requisition
   keterangan    String?
-  createdAt DateTime @default(now())
-  createdBy String // ID User/Petugas
+  createdAt     DateTime   @default(now())
+  createdBy     String // ID User/Petugas
 }
 
 enum StatusBatch {
@@ -101,49 +104,49 @@ enum Role {
 
 enum StatusPermintaan {
   PENDING_GUDANG // FPKB digenerate Admin, nunggu di-adjust Staf Gudang
-  PARTIAL        // Diproses Gudang tapi ada barang Outstanding
-  COMPLETED      // Selesai 100% dipenuhi
+  PARTIAL // Diproses Gudang tapi ada barang Outstanding
+  COMPLETED // Selesai 100% dipenuhi
 }
 
 enum StatusItem {
-  FULFILLED     // Dipenuhi 100%
-  PARTIAL       // Dipenuhi sebagian, sisanya masuk outstanding
-  OUTSTANDING   // 0% dipenuhi (stok kosong)
-  CANCELLED     // Dibatalkan permanen
+  FULFILLED // Dipenuhi 100%
+  PARTIAL // Dipenuhi sebagian, sisanya masuk outstanding
+  OUTSTANDING // 0% dipenuhi (stok kosong)
+  CANCELLED // Dibatalkan permanen
 }
 
 // --- MODUL PERMINTAAN (REQUISITION) ---
 model Permintaan_Header {
-  id            String  @id @default(cuid())
-  nomor_fpp     String  @unique // Form FPP dari Cabang
-  nomor_fpkb    String? @unique // Generate Otomatis oleh Staf Admin
-  cabang        String // Tujuan / Unit kerja
-  pic_nama      String // Nama yang minta
-  
-  status        StatusPermintaan @default(PENDING_GUDANG) // Status awal saat di-generate
-  keterangan    String?
-  
+  id         String  @id @default(cuid())
+  nomor_fpp  String  @unique // Form FPP dari Cabang
+  nomor_fpkb String? @unique // Generate Otomatis oleh Staf Admin
+  cabang     String // Tujuan / Unit kerja
+  pic_nama   String // Nama yang minta
+
+  status     StatusPermintaan @default(PENDING_GUDANG) // Status awal saat di-generate
+  keterangan String?
+
   // Tracking siapa yang bikin dan siapa yang eksekusi
-  adminId       String? // User ID Staf Admin yang input
-  gudangId      String? // User ID Staf Gudang yang proses
-  
+  adminId  String? // User ID Staf Admin yang input
+  gudangId String? // User ID Staf Gudang yang proses
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   details      Permintaan_Detail[]
   outstandings Permintaan_Outstanding[]
-  
-  admin        User? @relation("AdminPembuat", fields: [adminId], references: [id])
-  gudang       User? @relation("GudangPemroses", fields: [gudangId], references: [id])
+
+  admin  User? @relation("AdminPembuat", fields: [adminId], references: [id])
+  gudang User? @relation("GudangPemroses", fields: [gudangId], references: [id])
 }
 
 model Permintaan_Detail {
-  id            String  @id @default(cuid())
+  id            String     @id @default(cuid())
   headerId      String
   barangId      String
   qty_diminta   Int // Jumlah yang di-input Admin dari FPP
-  qty_disetujui Int      @default(0) // Jumlah yang dieksekusi/di-adjust Gudang
-  status_item   StatusItem @default(OUTSTANDING) 
+  qty_disetujui Int        @default(0) // Jumlah yang dieksekusi/di-adjust Gudang
+  status_item   StatusItem @default(OUTSTANDING)
   keterangan    String?
 
   header Permintaan_Header @relation(fields: [headerId], references: [id], onDelete: Cascade)
@@ -152,28 +155,28 @@ model Permintaan_Detail {
 
 // --- TABEL OUTSTANDING ---
 model Permintaan_Outstanding {
-  id             String   @id @default(uuid())
-  headerId       String   // Nyambung ke FPKB awal biar gampang dilacak
-  header         Permintaan_Header @relation(fields: [headerId], references: [id], onDelete: Cascade)
-  
-  barangId       String
-  barang         Master_Barang @relation(fields: [barangId], references: [id])
-  
-  qty_sisa       Int      // Selisih (qty_diminta - qty_disetujui)
-  status         StatusItem @default(OUTSTANDING) // Kalau disusulin nanti, jadi FULFILLED
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id       String            @id @default(uuid())
+  headerId String // Nyambung ke FPKB awal biar gampang dilacak
+  header   Permintaan_Header @relation(fields: [headerId], references: [id], onDelete: Cascade)
+
+  barangId String
+  barang   Master_Barang @relation(fields: [barangId], references: [id])
+
+  qty_sisa Int // Selisih (qty_diminta - qty_disetujui)
+  status   StatusItem @default(OUTSTANDING) // Kalau disusulin nanti, jadi FULFILLED
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // --- MODUL SECURITY & AUTH ---
 model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  nama      String
-  password  String   // Pastikan di-bcrypt pas production
-  role      Role     @default(ADMIN) // Pakai Enum Role
-  
+  id       String @id @default(cuid())
+  username String @unique
+  nama     String
+  password String // Pastikan di-bcrypt pas production
+  role     Role   @default(ADMIN) // Pakai Enum Role
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
