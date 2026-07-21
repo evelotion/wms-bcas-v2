@@ -19,6 +19,22 @@ const formatRupiahRingkas = (angka: number) => {
   return formatRupiah(angka);
 };
 
+// Format qty pack-aware.
+// - Kalau tidak punya satuan_besar (atau isi_per_satuan_besar <= 1): "551 Pcs"
+// - Kalau habis dibagi: "226 Pack" (subteks kecil "= 226,000 Lembar")
+// - Kalau ada sisa: "7 Pack + 500 Set" (subteks kecil "= 7,500 Set")
+function formatQtyPack(qtyKecil: number, satuan: string, satuanBesar: string | null | undefined, isiPerBesar: number | null | undefined) {
+  const isi = Number(isiPerBesar) || 1;
+  if (!satuanBesar || isi <= 1) {
+    return { utama: `${qtyKecil.toLocaleString("id-ID")} ${satuan}`, sub: null as string | null };
+  }
+  const besar = Math.floor(qtyKecil / isi);
+  const sisa = qtyKecil - besar * isi;
+  const sub = `= ${qtyKecil.toLocaleString("id-ID")} ${satuan}`;
+  if (sisa === 0) return { utama: `${besar.toLocaleString("id-ID")} ${satuanBesar}`, sub };
+  return { utama: `${besar.toLocaleString("id-ID")} ${satuanBesar} + ${sisa.toLocaleString("id-ID")} ${satuan}`, sub };
+}
+
 const formatTanggal = (iso: string | null) => {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
@@ -263,6 +279,7 @@ export default function InventoryClient({ initialData }: { initialData: Inventor
                   const barPct = item.batas_minimum > 0
                     ? Math.min(100, Math.round((item.totalStok / (item.batas_minimum * 2)) * 100))
                     : 100;
+                  const fmtStok = formatQtyPack(item.totalStok, item.satuan, item.satuan_besar, item.isi_per_satuan_besar);
                   return (
                     <React.Fragment key={item.id}>
                       {/* BARIS UTAMA */}
@@ -289,13 +306,13 @@ export default function InventoryClient({ initialData }: { initialData: Inventor
                           </div>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <span className="font-black text-lg text-slate-700">{item.totalStok}</span>
-                          <span className="text-slate-400 font-medium text-xs ml-1">{item.satuan}</span>
+                          <span className="font-black text-lg text-slate-700">{fmtStok.utama}</span>
+                          {fmtStok.sub && <div className="text-[10px] text-slate-400 mt-0.5">{fmtStok.sub}</div>}
                           <div className="w-28 ml-auto mt-1.5">
                             <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                               <div className={`h-full rounded-full ${cfg.bar} transition-all duration-500`} style={{ width: `${barPct}%` }} />
                             </div>
-                            <p className="text-[10px] text-slate-400 mt-0.5 text-right">min. {item.batas_minimum}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5 text-right">min. {item.batas_minimum} {item.satuan}</p>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-right font-bold text-emerald-600">{formatRupiah(item.totalNilai)}</td>
@@ -324,6 +341,7 @@ export default function InventoryClient({ initialData }: { initialData: Inventor
                                   {item.batch_Barang.map((batch, idx) => {
                                     const umur = umurHari(batch.tanggal_masuk);
                                     const pertama = idx === 0;
+                                    const fmtBatch = formatQtyPack(batch.qty_sisa, item.satuan, item.satuan_besar, item.isi_per_satuan_besar);
                                     return (
                                       <div
                                         key={batch.id}
@@ -358,8 +376,9 @@ export default function InventoryClient({ initialData }: { initialData: Inventor
                                         </div>
                                         <div className="text-left sm:text-right shrink-0">
                                           <p className="font-black text-slate-700 text-sm">
-                                            {batch.qty_sisa} <span className="font-medium text-xs text-slate-400">{item.satuan}</span>
+                                            {fmtBatch.utama}
                                           </p>
+                                          {fmtBatch.sub && <p className="text-[10px] text-slate-400">{fmtBatch.sub}</p>}
                                           <p className="text-[11px] text-slate-400 font-mono">
                                             @ {formatRupiah(batch.harga_satuan)} = <span className="font-bold text-blue-600">{formatRupiah(batch.qty_sisa * batch.harga_satuan)}</span>
                                           </p>

@@ -33,6 +33,8 @@ export default async function InventoryPage() {
       nama: barang.nama,
       kategori: barang.kategori,
       satuan: barang.satuan,
+      satuan_besar: barang.satuan_besar,
+      isi_per_satuan_besar: barang.isi_per_satuan_besar,
       batas_minimum: barang.batas_minimum,
       totalStok,
       totalNilai, // Masukin ke props

@@ -18,6 +18,8 @@ export interface InventoryItem {
   nama: string;
   kategori: string;
   satuan: string;
+  satuan_besar: string | null;
+  isi_per_satuan_besar: number;
   batas_minimum: number;
   totalStok: number;
   totalNilai: number; // <-- Tambahan (Total Aset = Qty * Harga per Batch)
