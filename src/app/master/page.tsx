@@ -313,6 +313,23 @@ export default function MasterBarangPage() {
                   </div>
                 </div>
 
+                <details className="group bg-slate-50/70 border border-slate-200 rounded-xl" open={!!(editingItem?.kode_gl || editingItem?.keterangan_gl)}>
+                  <summary className="cursor-pointer select-none px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center justify-between">
+                    Kode GL (opsional)
+                    <span className="text-slate-400 group-open:rotate-180 transition-transform">▾</span>
+                  </summary>
+                  <div className="grid grid-cols-2 gap-4 px-4 pb-4 pt-1">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Kode GL</label>
+                      <input name="kode_gl" type="text" pattern="[0-9]*" defaultValue={editingItem?.kode_gl || ""} placeholder="Contoh: 1442301" className="w-full bg-white/70 border border-slate-200 rounded-xl px-4 py-2.5 focus:bg-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none text-sm transition-all" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Keterangan GL</label>
+                      <input name="keterangan_gl" type="text" defaultValue={editingItem?.keterangan_gl || ""} placeholder="Contoh: BARANG CETAKAN" className="w-full bg-white/70 border border-slate-200 rounded-xl px-4 py-2.5 focus:bg-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none text-sm transition-all" />
+                    </div>
+                  </div>
+                </details>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Satuan Besar (Opsional)</label>

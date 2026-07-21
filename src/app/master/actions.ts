@@ -25,6 +25,8 @@ export async function createMasterBarang(formData: FormData) {
           ? Number(formData.get("minimum_order_besar"))
           : null,
         batas_minimum: Number(formData.get("batas_minimum")),
+        kode_gl: (formData.get("kode_gl") as string) || null,
+        keterangan_gl: (formData.get("keterangan_gl") as string) || null,
       },
     });
     revalidatePath("/master");
@@ -49,6 +51,8 @@ export async function updateMasterBarang(id: string, formData: FormData) {
           ? Number(formData.get("minimum_order_besar"))
           : null,
         batas_minimum: Number(formData.get("batas_minimum")),
+        kode_gl: (formData.get("kode_gl") as string) || null,
+        keterangan_gl: (formData.get("keterangan_gl") as string) || null,
       },
     });
     revalidatePath("/master");

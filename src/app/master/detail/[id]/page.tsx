@@ -1,9 +1,7 @@
 import DetailBarangClient from "./DetailBarangClient";
 
-export async function generateStaticParams() {
-  return [];
-}
+export const dynamic = "force-dynamic";
 
-export default function DetailBarangPage({ params }: { params: Promise<{ id: string }> }) {
-  return <DetailBarangClient id={(params as any).id} />;
+export default function DetailBarangPage({ params }: { params: { id: string } }) {
+  return <DetailBarangClient id={params.id} />;
 }

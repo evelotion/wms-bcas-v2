@@ -1,6 +1,6 @@
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic";
 
-const CetakBarcodeClient = dynamic(() => import("./CetakBarcodeClient"), {
+const CetakBarcodeClient = nextDynamic(() => import("./CetakBarcodeClient"), {
   ssr: false,
   loading: () => (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center">
@@ -9,9 +9,7 @@ const CetakBarcodeClient = dynamic(() => import("./CetakBarcodeClient"), {
   ),
 });
 
-export async function generateStaticParams() {
-  return [];
-}
+export const dynamic = "force-dynamic";
 
 export default function CetakBarcodePage() {
   return <CetakBarcodeClient />;
