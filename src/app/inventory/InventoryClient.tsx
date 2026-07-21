@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import {
   Search, ChevronRight, ChevronLeft, PackageOpen, Layers,
   Boxes, Wallet, AlertTriangle, Archive, ArrowUpDown, ArrowUp, ArrowDown, Zap,
+  ArrowDownToLine, ArrowUpFromLine, ClipboardList, ExternalLink,
 } from "lucide-react";
 import { InventoryItem } from "./types";
 
@@ -388,6 +389,65 @@ export default function InventoryClient({ initialData }: { initialData: Inventor
                                   })}
                                 </div>
                               )}
+
+                              {/* MINI-HISTORY: 3 mutasi terakhir */}
+                              <div className="mt-5 pt-4 border-t border-slate-200/60">
+                                <div className="flex items-center justify-between mb-3">
+                                  <p className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+                                    <ClipboardList size={13} className="text-indigo-500" />
+                                    3 Mutasi Terakhir
+                                  </p>
+                                  <a
+                                    href={`/master/detail/${item.id}`}
+                                    className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    Lihat semua <ExternalLink size={11} />
+                                  </a>
+                                </div>
+
+                                {item.recentMutasi.length === 0 ? (
+                                  <div className="bg-white rounded-xl border border-slate-200 px-4 py-4 text-center text-slate-400 text-xs italic">
+                                    Belum ada mutasi tercatat.
+                                  </div>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {item.recentMutasi.map((m) => {
+                                      const masuk = m.qty > 0;
+                                      const cfg = masuk
+                                        ? { bg: "bg-emerald-50", border: "border-emerald-100", text: "text-emerald-600", ikon: ArrowDownToLine, label: "MASUK" }
+                                        : { bg: "bg-red-50", border: "border-red-100", text: "text-red-600", ikon: ArrowUpFromLine, label: "KELUAR" };
+                                      const Icon = cfg.ikon;
+                                      const qtyAbs = Math.abs(m.qty);
+                                      const f = formatQtyPack(qtyAbs, item.satuan, item.satuan_besar, item.isi_per_satuan_besar);
+                                      return (
+                                        <div key={m.id} className={`bg-white rounded-xl border ${cfg.border} shadow-sm flex items-center gap-3 px-3 py-2.5`}>
+                                          <div className={`w-8 h-8 rounded-lg ${cfg.bg} flex items-center justify-center shrink-0`}>
+                                            <Icon size={14} className={cfg.text} />
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${cfg.bg} ${cfg.text} border ${cfg.border}`}>
+                                                {cfg.label}
+                                              </span>
+                                              <span className="text-sm font-bold text-slate-700">{masuk ? "+" : "−"} {f.utama}</span>
+                                              {m.referensi && (
+                                                <span className="text-[10px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                                  {m.referensi}
+                                                </span>
+                                              )}
+                                            </div>
+                                            <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                                              {formatTanggal(m.tanggal)}
+                                              {m.keterangan && <> · {m.keterangan}</>}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </td>
                         </tr>

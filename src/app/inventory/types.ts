@@ -12,6 +12,15 @@ export interface BatchBarang {
   lokasi: Lokasi | null;
 }
 
+export interface MiniMutasi {
+  id: string;
+  tipe: string; // TipeMutasi enum sebagai string
+  qty: number; // signed
+  referensi: string | null;
+  keterangan: string | null;
+  tanggal: string; // ISO
+}
+
 export interface InventoryItem {
   id: string;
   sku: string;
@@ -24,4 +33,5 @@ export interface InventoryItem {
   totalStok: number;
   totalNilai: number; // <-- Tambahan (Total Aset = Qty * Harga per Batch)
   batch_Barang: BatchBarang[];
+  recentMutasi: MiniMutasi[];
 }

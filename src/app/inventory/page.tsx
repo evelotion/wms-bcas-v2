@@ -9,16 +9,39 @@ export default async function InventoryPage() {
   const masterData = await prisma.master_Barang.findMany({
     include: {
       batches: {
-        where: { 
+        where: {
           qty_sisa: { gt: 0 },
           status: 'AVAILABLE'
         },
         include: { lokasi: true },
-        orderBy: { tanggal_masuk: 'asc' } 
+        orderBy: { tanggal_masuk: 'asc' }
       }
     },
     orderBy: { nama: 'asc' }
   });
+
+  // Ambil mutasi 3 terakhir per SKU. Strategi: ambil N=3 * jumlah SKU mutasi terbaru,
+  // lalu grup di-app-level. Ini praktis karena mutasi punya index natural via createdAt DESC.
+  // Untuk skala 112 SKU, ambil 500 terakhir sudah cukup mewakili 3 terakhir per SKU
+  // (rata-rata SKU aktif punya < 5 mutasi/bulan).
+  const semuaMutasiTerbaru = await prisma.mutasi_Ledger.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: 500,
+    include: {
+      batch: { select: { barangId: true } }
+    }
+  });
+
+  // Group per barangId, ambil top 3
+  const mutasiPerSku = new Map<string, typeof semuaMutasiTerbaru>();
+  for (const m of semuaMutasiTerbaru) {
+    const bid = m.batch.barangId;
+    const arr = mutasiPerSku.get(bid) ?? [];
+    if (arr.length < 3) {
+      arr.push(m);
+      mutasiPerSku.set(bid, arr);
+    }
+  }
 
   const inventoryData: InventoryItem[] = masterData.map((barang: any) => {
     // Kalkulasi Total Stok
@@ -48,6 +71,14 @@ export default async function InventoryPage() {
           rak: batch.lokasi.rak,
           lorong: batch.lokasi.lorong
         } : null
+      })),
+      recentMutasi: (mutasiPerSku.get(barang.id) ?? []).map((m) => ({
+        id: m.id,
+        tipe: m.tipe_mutasi,
+        qty: m.qty_perubahan,
+        referensi: m.referensi ?? null,
+        keterangan: m.keterangan ?? null,
+        tanggal: m.createdAt.toISOString(),
       })),
     };
   });
