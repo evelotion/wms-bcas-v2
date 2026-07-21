@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { getMasterBarang, createMasterBarang, updateMasterBarang } from "./actions";
 import {
   Plus, Search, Package, ServerCrash, ChevronLeft, ChevronRight, X, Printer,
@@ -19,9 +20,14 @@ export default function MasterBarangPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     fetchData();
+  }, []);
+
+  useEffect(() => {
+    setIsMounted(true);
   }, []);
 
   const fetchData = async () => {
@@ -279,9 +285,9 @@ export default function MasterBarangPage() {
       </div>
 
       {/* Modal tambah/edit */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="glass-panel rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+      {isModalOpen && isMounted && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-white/30 backdrop-blur-md">
+          <div className="glass-panel rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-modal-in">
             <div className="p-6 border-b border-slate-200/60 flex justify-between items-center bg-white/40">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <Package className="text-blue-600" size={20} /> {editingItem ? 'Edit Barang' : 'Tambah Barang Baru'}
@@ -363,7 +369,8 @@ export default function MasterBarangPage() {
               </form>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
