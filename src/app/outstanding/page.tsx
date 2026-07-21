@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { getOutstandingList, tutupOutstanding, prosesUlangOutstanding } from "./actions";
+import { getOutstandingList, tutupOutstanding, prosesUlangOutstanding, getNilaiOutstanding } from "./actions";
 import { getFpkbAlerts } from "@/app/actions";
 import { getSession } from "@/app/login/actions";
 import {
@@ -10,10 +10,16 @@ import {
 
 type FilterOutstanding = "semua" | "siap" | "menunggu" | "bisa_ditutup";
 
+// Helper format Rupiah (aman dari hydration error)
+const formatRupiah = (angka: number) => {
+  return "Rp " + Math.round(angka).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+};
+
 export default function OutstandingPage() {
   const [outstandingList, setOutstandingList] = useState<any[]>([]);
   const [siapIdSet, setSiapIdSet] = useState<Set<string>>(new Set());
   const [siapCount, setSiapCount] = useState(0);
+  const [nilaiOutstanding, setNilaiOutstanding] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [userRole, setUserRole] = useState<string>("ADMIN");
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -28,20 +34,21 @@ export default function OutstandingPage() {
 
   const fetchData = async () => {
     setIsLoading(true);
-    const [data, alerts] = await Promise.all([
+    const [data, alerts, nilai] = await Promise.all([
       getOutstandingList(),
       getFpkbAlerts(),
+      getNilaiOutstanding(),
     ]);
     setOutstandingList(data || []);
     setSiapIdSet(new Set((alerts.outstandingBisaDiproses || []).map((o: any) => o.id)));
     setSiapCount(alerts.outstandingBisaDiprosesCount || 0);
+    setNilaiOutstanding(nilai.nilaiOutstanding || 0);
     setIsLoading(false);
   };
 
   // ===== KPI =====
   const kpi = useMemo(() => {
     const totalAktif = outstandingList.length;
-    const nilaiOutstanding = 0; // TODO: hubungkan ke harga per item saat data tersedia
     let tertuaHari = 0;
     if (outstandingList.length > 0) {
       const tertua = outstandingList.reduce((min, o) =>
@@ -50,7 +57,7 @@ export default function OutstandingPage() {
       tertuaHari = Math.max(0, Math.round((Date.now() - new Date(tertua.createdAt).getTime()) / 86_400_000));
     }
     return { totalAktif, stokCukup: siapCount, nilaiOutstanding, tertuaHari };
-  }, [outstandingList, siapCount]);
+  }, [outstandingList, siapCount, nilaiOutstanding]);
 
   const filteredList = useMemo(() => {
     return outstandingList.filter((item) => {
@@ -137,7 +144,7 @@ export default function OutstandingPage() {
           </div>
           <div className="min-w-0">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Nilai Outstanding</p>
-            <p className="text-2xl font-black text-slate-800">{kpi.nilaiOutstanding}</p>
+            <p className="text-2xl font-black text-slate-800" title={formatRupiah(kpi.nilaiOutstanding)}>{formatRupiah(kpi.nilaiOutstanding)}</p>
           </div>
         </div>
         <div className="glass-panel rounded-2xl p-5 flex items-center gap-4">

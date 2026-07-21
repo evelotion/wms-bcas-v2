@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { getMasterBarang, createMasterBarang, updateMasterBarang } from "./actions";
+import { getMasterBarang, createMasterBarang, updateMasterBarang, getMasterBarangStats } from "./actions";
 import {
   Plus, Search, Package, ServerCrash, ChevronLeft, ChevronRight, X, Printer,
   CreditCard as Edit, Boxes, Wallet, Layers, AlertTriangle, Info, Eye,
@@ -12,6 +12,7 @@ import Link from "next/link";
 
 export default function MasterBarangPage() {
   const [items, setItems] = useState<any[]>([]);
+  const [stats, setStats] = useState<{ perluSetupHarga: number } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,8 +33,9 @@ export default function MasterBarangPage() {
 
   const fetchData = async () => {
     setIsLoading(true);
-    const data = await getMasterBarang();
+    const [data, statsData] = await Promise.all([getMasterBarang(), getMasterBarangStats()]);
     setItems(data);
+    setStats(statsData);
     setIsLoading(false);
   };
 
@@ -42,9 +44,9 @@ export default function MasterBarangPage() {
     const totalSku = items.length;
     const denganKodeGl = items.filter((i) => i.kode_gl).length;
     const kategoriUnik = new Set(items.map((i) => i.kategori).filter(Boolean)).size;
-    const perluSetupHarga = 0; // TODO: hubungkan ke SKU harga 0 saat data tersedia
+    const perluSetupHarga = stats?.perluSetupHarga ?? 0;
     return { totalSku, denganKodeGl, kategoriUnik, perluSetupHarga };
-  }, [items]);
+  }, [items, stats]);
 
   // === SEARCH & PAGINATION ===
   const filteredItems = items.filter(

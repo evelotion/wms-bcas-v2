@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { LayoutDashboard, Database, ArrowDownToLine, FileQuestion, FileText, Package2, Bell, Search, LogOut, Archive, Package, ClipboardCheck } from "lucide-react";
 import { logoutUser } from "@/app/login/actions";
+import { getFpkbAlerts, searchBarang } from "@/app/actions";
 
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: "Staf",
@@ -20,12 +21,93 @@ export default function ClientAppShell({
   session: { id: string; nama: string; role: string } | null;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{ id: string; sku: string; nama: string; kategori: string }[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  const [alerts, setAlerts] = useState({
+    outstandingBisaDiprosesCount: 0,
+    fpkbBelumSerahTerimaCount: 0,
+    fpkbMenungguAdjustmentCount: 0,
+  });
+  const [bellOpen, setBellOpen] = useState(false);
+  const bellRef = useRef<HTMLDivElement>(null);
+
   const isLoginPage = pathname === "/login";
+
+  // Debounce pencarian barang ~250ms
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    const timer = setTimeout(async () => {
+      const hasil = await searchBarang(query);
+      setSearchResults(hasil);
+      setSearchLoading(false);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch alert bell notif, re-fetch tiap ganti halaman biar fresh
+  useEffect(() => {
+    if (isLoginPage) return;
+    getFpkbAlerts().then((data) => {
+      setAlerts({
+        outstandingBisaDiprosesCount: data.outstandingBisaDiprosesCount,
+        fpkbBelumSerahTerimaCount: data.fpkbBelumSerahTerimaCount,
+        fpkbMenungguAdjustmentCount: data.fpkbMenungguAdjustmentCount,
+      });
+    });
+  }, [pathname, isLoginPage]);
+
+  // Tutup dropdown search & bell saat klik di luar atau Escape
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
+        setBellOpen(false);
+      }
+    }
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setSearchOpen(false);
+        setBellOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
 
   if (isLoginPage) {
     return <>{children}</>;
   }
+
+  const totalAlert =
+    alerts.outstandingBisaDiprosesCount +
+    alerts.fpkbBelumSerahTerimaCount +
+    alerts.fpkbMenungguAdjustmentCount;
+
+  const handleSelectSearchResult = (id: string) => {
+    router.push(`/master/detail/${id}`);
+    setSearchQuery("");
+    setSearchResults([]);
+    setSearchOpen(false);
+  };
 
   // Menu Dinamis (Tanpa pusing mikirin useEffect lagi)
   const menuItems = [
@@ -92,17 +174,108 @@ export default function ClientAppShell({
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden relative z-10">
         <header className="h-20 bg-white/70 backdrop-blur-xl border-b border-slate-200/60 flex items-center justify-between px-8 z-20 shadow-sm shadow-slate-100/50">
-          <div className="flex items-center gap-3 bg-slate-50 hover:bg-white transition-colors px-4 py-2.5 rounded-2xl border border-slate-200 focus-within:border-blue-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100 w-96 shadow-sm">
-            <Search size={16} className="text-slate-400 shrink-0" />
-            <input type="text" placeholder="Cari SKU atau nama barang..." className="bg-transparent border-none outline-none text-sm w-full placeholder:text-slate-400 font-medium text-slate-700" />
-            <kbd className="hidden md:inline-block text-[10px] font-mono font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">⌘K</kbd>
+          <div className="relative w-96" ref={searchRef}>
+            <div className="flex items-center gap-3 bg-slate-50 hover:bg-white transition-colors px-4 py-2.5 rounded-2xl border border-slate-200 focus-within:border-blue-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100 shadow-sm">
+              <Search size={16} className="text-slate-400 shrink-0" />
+              <input
+                type="text"
+                placeholder="Cari SKU atau nama barang..."
+                className="bg-transparent border-none outline-none text-sm w-full placeholder:text-slate-400 font-medium text-slate-700"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
+                onFocus={() => { if (searchQuery.trim().length >= 2) setSearchOpen(true); }}
+              />
+              <kbd className="hidden md:inline-block text-[10px] font-mono font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">⌘K</kbd>
+            </div>
+
+            {searchOpen && searchQuery.trim().length >= 2 && (
+              <div className="absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl shadow-slate-200/50 border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                {searchLoading ? (
+                  <div className="px-4 py-6 text-center text-sm text-slate-400 font-medium">Mencari...</div>
+                ) : searchResults.length === 0 ? (
+                  <div className="px-4 py-6 text-center text-sm text-slate-400 font-medium">Nggak ada barang cocok.</div>
+                ) : (
+                  <div className="py-2 max-h-80 overflow-y-auto no-scrollbar">
+                    {searchResults.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => handleSelectSearchResult(item.id)}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-blue-50/60 transition-colors text-left"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-mono font-bold text-slate-700 text-xs">{item.sku}</p>
+                          <p className="text-sm text-slate-600 truncate">{item.nama}</p>
+                        </div>
+                        <span className="shrink-0 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md text-[10px] font-semibold border border-slate-200">
+                          {item.kategori}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="relative p-2.5 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-all">
-              <Bell size={18} />
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full ring-2 ring-white"></span>
-            </button>
+            <div className="relative" ref={bellRef}>
+              <button
+                onClick={() => setBellOpen(!bellOpen)}
+                className="relative p-2.5 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-all"
+              >
+                <Bell size={18} />
+                {totalAlert > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full ring-2 ring-white"></span>
+                )}
+              </button>
+
+              {bellOpen && (
+                <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl py-2 shadow-2xl shadow-slate-200/50 z-50 border border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="px-4 py-2.5 border-b border-slate-100">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Notifikasi</p>
+                  </div>
+                  {totalAlert === 0 ? (
+                    <div className="px-4 py-6 text-center text-sm text-slate-400 font-medium">Nggak ada notifikasi.</div>
+                  ) : (
+                    <div className="py-1">
+                      {alerts.outstandingBisaDiprosesCount > 0 && (
+                        <button
+                          onClick={() => { router.push("/outstanding"); setBellOpen(false); }}
+                          className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-blue-50/60 transition-colors text-left"
+                        >
+                          <span className="text-sm font-semibold text-slate-700">Outstanding siap diproses</span>
+                          <span className="shrink-0 bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 rounded-md text-xs font-bold">
+                            {alerts.outstandingBisaDiprosesCount}
+                          </span>
+                        </button>
+                      )}
+                      {alerts.fpkbBelumSerahTerimaCount > 0 && (
+                        <button
+                          onClick={() => { router.push("/fpkb"); setBellOpen(false); }}
+                          className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-blue-50/60 transition-colors text-left"
+                        >
+                          <span className="text-sm font-semibold text-slate-700">FPKB nunggu serah terima</span>
+                          <span className="shrink-0 bg-amber-50 text-amber-600 border border-amber-100 px-2 py-0.5 rounded-md text-xs font-bold">
+                            {alerts.fpkbBelumSerahTerimaCount}
+                          </span>
+                        </button>
+                      )}
+                      {alerts.fpkbMenungguAdjustmentCount > 0 && (
+                        <button
+                          onClick={() => { router.push("/fpkb"); setBellOpen(false); }}
+                          className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-blue-50/60 transition-colors text-left"
+                        >
+                          <span className="text-sm font-semibold text-slate-700">FPKB nunggu adjustment</span>
+                          <span className="shrink-0 bg-red-50 text-red-600 border border-red-100 px-2 py-0.5 rounded-md text-xs font-bold">
+                            {alerts.fpkbMenungguAdjustmentCount}
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <div className="h-8 w-px bg-slate-200"></div>
 
             {/* DROPDOWN USER */}

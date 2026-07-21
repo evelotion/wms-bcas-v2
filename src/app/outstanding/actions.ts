@@ -29,3 +29,29 @@ export async function tutupOutstanding(outstandingIds: string[]) {
 export async function prosesUlangOutstanding(outstandingIds: string[]) {
   return permintaanActions.prosesUlangOutstanding(outstandingIds);
 }
+
+// Nilai rupiah outstanding = Σ (qty_sisa x harga FIFO SKU, dari batch tanggal_masuk
+// tertua yang masih punya qty_sisa > 0). SKU tanpa batch berstok dihitung harga 0.
+export async function getNilaiOutstanding() {
+  const outstanding = await prisma.permintaan_Outstanding.findMany({
+    where: { status: "OUTSTANDING" },
+    select: {
+      qty_sisa: true,
+      barang: {
+        select: {
+          batches: {
+            where: { qty_sisa: { gt: 0 } },
+            orderBy: { tanggal_masuk: "asc" },
+            select: { harga_satuan: true },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+  const nilaiOutstanding = outstanding.reduce((sum, o) => {
+    const harga = o.barang?.batches?.[0]?.harga_satuan ?? 0;
+    return sum + o.qty_sisa * harga;
+  }, 0);
+  return { nilaiOutstanding };
+}

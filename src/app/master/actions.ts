@@ -11,6 +11,19 @@ export async function getMasterBarang() {
   });
 }
 
+export async function getMasterBarangStats() {
+  const semua = await prisma.master_Barang.findMany({
+    select: {
+      id: true,
+      batches: { select: { harga_satuan: true } },
+    },
+  });
+  const perluSetupHarga = semua.filter(
+    (b) => !b.batches.some((bt) => bt.harga_satuan > 0)
+  ).length;
+  return { perluSetupHarga };
+}
+
 export async function createMasterBarang(formData: FormData) {
   try {
     await prisma.master_Barang.create({

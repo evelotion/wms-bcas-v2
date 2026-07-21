@@ -85,3 +85,21 @@ export async function getFpkbAlerts() {
     fpkbMenungguAdjustmentCount: fpkbMenungguAdjustment,
   };
 }
+
+// === GLOBAL SEARCH NAVBAR ===
+export async function searchBarang(q: string) {
+  const query = q.trim();
+  if (query.length < 2) return [];
+  const hasil = await prisma.master_Barang.findMany({
+    where: {
+      OR: [
+        { sku: { contains: query, mode: "insensitive" } },
+        { nama: { contains: query, mode: "insensitive" } },
+      ],
+    },
+    select: { id: true, sku: true, nama: true, kategori: true },
+    take: 8,
+    orderBy: { sku: "asc" },
+  });
+  return hasil;
+}
