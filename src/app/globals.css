@@ -55,3 +55,19 @@
 @utility animate-modal-in {
   animation: fadeIn 200ms ease-out, zoomIn 200ms ease-out;
 }
+
+@utility animate-fade-in {
+  animation: fadeIn 300ms ease-out;
+}
+
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@utility skeleton-shimmer {
+  background: linear-gradient(90deg, rgb(226 232 240 / 0.6) 25%, rgb(241 245 249 / 0.9) 50%, rgb(226 232 240 / 0.6) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
