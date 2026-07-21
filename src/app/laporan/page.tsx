@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Archive, PackagePlus, ArrowRightLeft, Download, Filter } from "lucide-react";
+import { Archive, PackagePlus, ArrowRightLeft, Download, Filter, FileSpreadsheet } from "lucide-react";
 import * as XLSX from "xlsx";
-import { getLaporanData } from "./actions";
+import { getLaporanData, getStockOpname } from "./actions";
 
 export default function LaporanPage() {
   const [selectedBulan, setSelectedBulan] = useState("all");
   const [laporanData, setLaporanData] = useState<any>({ persediaan: [], laporanMasuk: [], laporanKeluar: [] });
   const [isLoading, setIsLoading] = useState(true);
+  const [isExportingOpname, setIsExportingOpname] = useState(false);
 
   // Generate opsi bulan (6 bulan terakhir)
   const getBulanOptions = () => {
@@ -47,6 +48,26 @@ export default function LaporanPage() {
     XLSX.writeFile(workbook, `${fileName}_${selectedBulan}.xlsx`);
   };
 
+  const handleExportStockOpname = async () => {
+    setIsExportingOpname(true);
+    try {
+      const { detail, ringkasan } = await getStockOpname();
+
+      const wb = XLSX.utils.book_new();
+
+      const wsRingkasan = XLSX.utils.json_to_sheet(ringkasan);
+      XLSX.utils.book_append_sheet(wb, wsRingkasan, "Ringkasan");
+
+      const wsDetail = XLSX.utils.json_to_sheet(detail);
+      XLSX.utils.book_append_sheet(wb, wsDetail, "Detail_FIFO");
+
+      const tgl = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      XLSX.writeFile(wb, `Stock_Opname_${tgl}.xlsx`);
+    } finally {
+      setIsExportingOpname(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-12">
       {/* Header & Filter */}
@@ -71,8 +92,8 @@ export default function LaporanPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+
         {/* CARD 1: STOK TERKINI */}
         <div className="glass-panel p-6 rounded-2xl flex flex-col h-full relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
@@ -138,6 +159,29 @@ export default function LaporanPage() {
               className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white py-2.5 rounded-xl text-sm font-bold transition-all shadow-md shadow-orange-500/30 disabled:opacity-50"
             >
               <Download size={16} /> Download Excel ({laporanData.laporanKeluar?.length || 0})
+            </button>
+          </div>
+        </div>
+
+        {/* CARD 4: STOCK OPNAME */}
+        <div className="glass-panel p-6 rounded-2xl flex flex-col h-full relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+            <FileSpreadsheet size={120} />
+          </div>
+          <div className="relative z-10 flex flex-col h-full">
+            <div className="p-3 bg-slate-200 w-fit rounded-xl mb-4 text-slate-600">
+              <FileSpreadsheet size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800">Stock Opname</h3>
+            <p className="text-sm text-slate-500 mt-2 mb-4 flex-1">
+              Rekap Buku Besar FIFO per tingkat harga & subtotal per Kode GL, ditarik langsung dari DB.
+            </p>
+            <button
+              onClick={handleExportStockOpname}
+              disabled={isExportingOpname}
+              className="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white py-2.5 rounded-xl text-sm font-bold transition-all shadow-md shadow-slate-500/30 disabled:opacity-50"
+            >
+              <Download size={16} /> {isExportingOpname ? "Menyiapkan..." : "Export Stock Opname"}
             </button>
           </div>
         </div>
