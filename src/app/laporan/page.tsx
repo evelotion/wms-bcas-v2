@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Archive, PackagePlus, ArrowRightLeft, Download, Filter, FileSpreadsheet } from "lucide-react";
 import * as XLSX from "xlsx";
-import { getLaporanData, getStockOpname } from "./actions";
+import { getLaporanData, getStockOpname, getBukuBesarLog } from "./actions";
 
 export default function LaporanPage() {
   const [selectedBulan, setSelectedBulan] = useState("all");
@@ -51,15 +51,21 @@ export default function LaporanPage() {
   const handleExportStockOpname = async () => {
     setIsExportingOpname(true);
     try {
-      const { detail, ringkasan } = await getStockOpname();
+      const [log, { detail, ringkasan }] = await Promise.all([
+        getBukuBesarLog(),
+        getStockOpname(),
+      ]);
 
       const wb = XLSX.utils.book_new();
 
-      const wsRingkasan = XLSX.utils.json_to_sheet(ringkasan);
-      XLSX.utils.book_append_sheet(wb, wsRingkasan, "Ringkasan");
+      const wsBukuBesar = XLSX.utils.json_to_sheet(log);
+      XLSX.utils.book_append_sheet(wb, wsBukuBesar, "Buku_Besar");
 
       const wsDetail = XLSX.utils.json_to_sheet(detail);
       XLSX.utils.book_append_sheet(wb, wsDetail, "Detail_FIFO");
+
+      const wsRingkasan = XLSX.utils.json_to_sheet(ringkasan);
+      XLSX.utils.book_append_sheet(wb, wsRingkasan, "Ringkasan");
 
       const tgl = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
       XLSX.writeFile(wb, `Stock_Opname_${tgl}.xlsx`);
@@ -174,14 +180,14 @@ export default function LaporanPage() {
             </div>
             <h3 className="text-lg font-bold text-slate-800">Stock Opname</h3>
             <p className="text-sm text-slate-500 mt-2 mb-4 flex-1">
-              Rekap Buku Besar FIFO per tingkat harga & subtotal per Kode GL, ditarik langsung dari DB.
+              Log mutasi kronologis (running balance per SKU) + Buku Besar FIFO per tingkat harga & subtotal per Kode GL, ditarik langsung dari DB.
             </p>
             <button
               onClick={handleExportStockOpname}
               disabled={isExportingOpname}
               className="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white py-2.5 rounded-xl text-sm font-bold transition-all shadow-md shadow-slate-500/30 disabled:opacity-50"
             >
-              <Download size={16} /> {isExportingOpname ? "Menyiapkan..." : "Export Stock Opname"}
+              <Download size={16} /> {isExportingOpname ? "Menyiapkan..." : "Export Stock Opname (Buku Besar)"}
             </button>
           </div>
         </div>

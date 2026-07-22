@@ -73,6 +73,83 @@ export async function getLaporanData(bulan: string) {
   return { persediaan, laporanMasuk, laporanKeluar };
 }
 
+export async function getBukuBesarLog() {
+  // 1) Semua user buat map id->nama (createdBy itu ID, bukan nama, tanpa FK)
+  const users = await prisma.user.findMany({ select: { id: true, nama: true } });
+  const userMap = new Map(users.map((u) => [u.id, u.nama]));
+
+  // 2) Semua FPKB + header buat join dokumen (key by nomor_fpkb, karena referensi outbound = nomor_fpkb)
+  const fpkbs = await prisma.fpkb.findMany({
+    select: {
+      nomor_fpkb: true,
+      nomor_bast: true,
+      tanggal_serah_terima: true,
+      gudang: { select: { nama: true } },
+      header: { select: { cabang: true, wilayah: true, nomor_fpp: true, pic_nama: true } },
+    },
+  });
+  const fpkbMap = new Map(fpkbs.map((f) => [f.nomor_fpkb, f]));
+
+  // 3) Semua mutasi + batch + barang, kronologis
+  const mutasi = await prisma.mutasi_Ledger.findMany({
+    include: {
+      batch: {
+        include: { barang: { select: { sku: true, nama: true, kategori: true, kode_gl: true, satuan: true, satuan_besar: true, isi_per_satuan_besar: true } } },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  // 4) Running balance PER SKU (akumulasi kronologis)
+  const saldoPerSku = new Map<string, number>();
+  const rows = mutasi.map((m) => {
+    const b = m.batch.barang;
+    const sku = b.sku;
+    // qty_perubahan tidak konsisten tandanya lintas sumber data (live fpkb/actions.ts
+    // selalu simpan positif, tapi sebagian seed historis simpan negatif untuk OUTBOUND) —
+    // pakai Math.abs, arah tetap ditentukan dari tipe_mutasi.
+    const qtyAbs = Math.abs(m.qty_perubahan);
+    const masuk = m.tipe_mutasi === "OUTBOUND" ? 0 : qtyAbs;
+    const keluar = m.tipe_mutasi === "OUTBOUND" ? qtyAbs : 0;
+    const stockAwal = saldoPerSku.get(sku) ?? 0;
+    const sisa = stockAwal + masuk - keluar;
+    saldoPerSku.set(sku, sisa);
+
+    // Join dokumen HANYA kalau referensi cocok nomor_fpkb (transaksi baru)
+    const fpkb = m.referensi ? fpkbMap.get(m.referensi) : undefined;
+    const isiBesar = b.isi_per_satuan_besar || 1;
+
+    return {
+      "Tanggal": m.createdAt.toLocaleString("id-ID"),
+      "Kategori": b.kategori ?? "",
+      "Kode GL": b.kode_gl ?? "",
+      "Kode / SKU": sku,
+      "Nama Barang": b.nama,
+      "Tipe": m.tipe_mutasi,
+      "Stock Awal (kecil)": stockAwal,
+      "Masuk (kecil)": masuk,
+      "Keluar (kecil)": keluar,
+      "Sisa Stock (kecil)": sisa,
+      "Sisa Stock (besar)": isiBesar > 1 ? sisa / isiBesar : sisa,
+      "Satuan Kecil": b.satuan,
+      "Satuan Besar": b.satuan_besar ?? b.satuan,
+      "Nomorator": [m.batch.nomorator_awal, m.batch.nomorator_akhir].filter(Boolean).join(" - ") || "",
+      "Referensi": m.referensi ?? "",
+      "No FPKB": fpkb ? m.referensi : "",
+      "No FPP": fpkb?.header?.nomor_fpp ?? "",
+      "Cabang": fpkb?.header?.cabang ?? "",
+      "Wilayah": fpkb?.header?.wilayah ?? "",
+      "No BAST": fpkb?.nomor_bast ?? "",
+      "Tgl Serah Terima": fpkb?.tanggal_serah_terima ? fpkb.tanggal_serah_terima.toLocaleDateString("id-ID") : "",
+      "Petugas Gudang": fpkb?.gudang?.nama ?? "",
+      "Petugas (createdBy)": userMap.get(m.createdBy) ?? m.createdBy,
+      "Keterangan": m.keterangan ?? "",
+    };
+  });
+
+  return rows;
+}
+
 export async function getStockOpname() {
   const master = await prisma.master_Barang.findMany({
     include: {
