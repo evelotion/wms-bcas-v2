@@ -24,19 +24,39 @@ export default function SearchableSelect({ name, options, value, onChange, place
   const [searchTerm, setSearchTerm] = useState("");
   const wrapperRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({});
 
   const selectedOption = options.find(opt => opt.id === value);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const diWrapper = wrapperRef.current?.contains(target);
+      const diPanel = panelRef.current?.contains(target);
+      if (!diWrapper && !diPanel) {
         setIsOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [wrapperRef]);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpen(false);
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      searchInputRef.current?.focus();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && buttonRef.current) {
@@ -79,9 +99,10 @@ export default function SearchableSelect({ name, options, value, onChange, place
   );
 
   const dropdownPanel = isOpen && (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto" style={panelStyle}>
+    <div ref={panelRef} className="bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto" style={panelStyle}>
       <div className="p-2 sticky top-0 bg-white">
         <input
+          ref={searchInputRef}
           type="text"
           placeholder="Cari..."
           value={searchTerm}
@@ -89,15 +110,19 @@ export default function SearchableSelect({ name, options, value, onChange, place
           className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-emerald-500"
         />
       </div>
-      {filteredOptions.map(opt => (
-        <div
-          key={opt.id}
-          onClick={() => { onChange(opt.id); setIsOpen(false); setSearchTerm(''); }}
-          className="px-4 py-2 hover:bg-emerald-50 cursor-pointer text-sm"
-        >
-          {`[${opt.sku}] ${opt.label}`}
-        </div>
-      ))}
+      {filteredOptions.length === 0 ? (
+        <div className="px-4 py-2 text-sm text-slate-400">Tidak ada barang cocok.</div>
+      ) : (
+        filteredOptions.map(opt => (
+          <div
+            key={opt.id}
+            onClick={() => { onChange(opt.id); setIsOpen(false); setSearchTerm(''); }}
+            className="px-4 py-2 hover:bg-emerald-50 cursor-pointer text-sm"
+          >
+            {`[${opt.sku}] ${opt.label}`}
+          </div>
+        ))
+      )}
     </div>
   );
 
