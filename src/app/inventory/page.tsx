@@ -75,7 +75,10 @@ export default async function InventoryPage() {
       recentMutasi: (mutasiPerSku.get(barang.id) ?? []).map((m) => ({
         id: m.id,
         tipe: m.tipe_mutasi,
-        qty: m.qty_perubahan,
+        // qty_perubahan tandanya tidak konsisten lintas sumber (seed historis OUTBOUND
+        // negatif, transaksi live OUTBOUND positif) — simpan besaran absolut saja,
+        // arah masuk/keluar ditentukan dari `tipe` di sisi tampilan.
+        qty: Math.abs(m.qty_perubahan),
         referensi: m.referensi ?? null,
         keterangan: m.keterangan ?? null,
         tanggal: m.createdAt.toISOString(),

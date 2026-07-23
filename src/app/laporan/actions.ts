@@ -74,33 +74,36 @@ export async function getLaporanData(bulan: string) {
 }
 
 export async function getBukuBesarLog() {
-  // 1) Semua user buat map id->nama (createdBy itu ID, bukan nama, tanpa FK)
-  const users = await prisma.user.findMany({ select: { id: true, nama: true } });
-  const userMap = new Map(users.map((u) => [u.id, u.nama]));
-
-  // 2) Semua FPKB + header buat join dokumen (key by nomor_fpkb, karena referensi outbound = nomor_fpkb)
+  // 1) Semua FPKB + header buat join dokumen (key by nomor_fpkb, karena referensi outbound = nomor_fpkb)
   const fpkbs = await prisma.fpkb.findMany({
     select: {
       nomor_fpkb: true,
       nomor_bast: true,
       tanggal_serah_terima: true,
       gudang: { select: { nama: true } },
-      header: { select: { cabang: true, wilayah: true, nomor_fpp: true, pic_nama: true } },
+      header: { select: { cabang: true, pic_nama: true } },
     },
   });
   const fpkbMap = new Map(fpkbs.map((f) => [f.nomor_fpkb, f]));
 
-  // 3) Semua mutasi + batch + barang, kronologis
+  // 2) Semua mutasi + batch + barang, kronologis
   const mutasi = await prisma.mutasi_Ledger.findMany({
     include: {
       batch: {
-        include: { barang: { select: { sku: true, nama: true, kategori: true, kode_gl: true, satuan: true, satuan_besar: true, isi_per_satuan_besar: true } } },
+        include: {
+          barang: {
+            select: {
+              sku: true, nama: true, satuan: true, satuan_besar: true,
+              isi_per_satuan_besar: true, kode_gl: true, kategori: true, keterangan_gl: true,
+            },
+          },
+        },
       },
     },
     orderBy: { createdAt: "asc" },
   });
 
-  // 4) Running balance PER SKU (akumulasi kronologis)
+  // 3) Running balance PER SKU (akumulasi kronologis)
   const saldoPerSku = new Map<string, number>();
   const rows = mutasi.map((m) => {
     const b = m.batch.barang;
@@ -109,8 +112,9 @@ export async function getBukuBesarLog() {
     // selalu simpan positif, tapi sebagian seed historis simpan negatif untuk OUTBOUND) —
     // pakai Math.abs, arah tetap ditentukan dari tipe_mutasi.
     const qtyAbs = Math.abs(m.qty_perubahan);
-    const masuk = m.tipe_mutasi === "OUTBOUND" ? 0 : qtyAbs;
-    const keluar = m.tipe_mutasi === "OUTBOUND" ? qtyAbs : 0;
+    const isOutbound = m.tipe_mutasi === "OUTBOUND";
+    const masuk = isOutbound ? 0 : qtyAbs;
+    const keluar = isOutbound ? qtyAbs : 0;
     const stockAwal = saldoPerSku.get(sku) ?? 0;
     const sisa = stockAwal + masuk - keluar;
     saldoPerSku.set(sku, sisa);
@@ -118,32 +122,35 @@ export async function getBukuBesarLog() {
     // Join dokumen HANYA kalau referensi cocok nomor_fpkb (transaksi baru)
     const fpkb = m.referensi ? fpkbMap.get(m.referensi) : undefined;
     const isiBesar = b.isi_per_satuan_besar || 1;
+    // Sumber Tanggal Kirim & Tanggal Barang diterima sama (belum ada field terima terpisah di skema)
+    const tglSerahTerima = fpkb?.tanggal_serah_terima ? fpkb.tanggal_serah_terima.toLocaleDateString("id-ID") : "";
 
     return {
-      "Tanggal": m.createdAt.toLocaleString("id-ID"),
-      "Kategori": b.kategori ?? "",
-      "Kode GL": b.kode_gl ?? "",
-      "Kode / SKU": sku,
+      "Kode Barang": sku,
       "Nama Barang": b.nama,
-      "Tipe": m.tipe_mutasi,
-      "Stock Awal (kecil)": stockAwal,
-      "Masuk (kecil)": masuk,
-      "Keluar (kecil)": keluar,
-      "Sisa Stock (kecil)": sisa,
-      "Sisa Stock (besar)": isiBesar > 1 ? sisa / isiBesar : sisa,
-      "Satuan Kecil": b.satuan,
-      "Satuan Besar": b.satuan_besar ?? b.satuan,
-      "Nomorator": [m.batch.nomorator_awal, m.batch.nomorator_akhir].filter(Boolean).join(" - ") || "",
-      "Referensi": m.referensi ?? "",
-      "No FPKB": fpkb ? m.referensi : "",
-      "No FPP": fpkb?.header?.nomor_fpp ?? "",
-      "Cabang": fpkb?.header?.cabang ?? "",
-      "Wilayah": fpkb?.header?.wilayah ?? "",
-      "No BAST": fpkb?.nomor_bast ?? "",
-      "Tgl Serah Terima": fpkb?.tanggal_serah_terima ? fpkb.tanggal_serah_terima.toLocaleDateString("id-ID") : "",
+      "Satuan": b.satuan,
+      "Minimum Order / Unit": `${isiBesar} ${b.satuan}`,
+      "Harga Barang / Satuan (Rp)": m.batch.harga_satuan,
+      "Tanggal Masuk": isOutbound ? "" : m.createdAt.toLocaleString("id-ID"),
+      "Tanggal Keluar": isOutbound ? m.createdAt.toLocaleString("id-ID") : "",
+      "Stock Awal": stockAwal,
+      "Barang Masuk": masuk,
+      "Barang Keluar": keluar,
+      "Sisa Stock": sisa,
+      "Nomor Dokumen": m.referensi ?? "",
+      "Nama Cabang/Unit Kerja": fpkb?.header?.cabang ?? "",
+      "PIC Cabang/Unit Kerja": fpkb?.header?.pic_nama ?? "",
+      "Tanggal Kirim": tglSerahTerima,
       "Petugas Gudang": fpkb?.gudang?.nama ?? "",
-      "Petugas (createdBy)": userMap.get(m.createdBy) ?? m.createdBy,
+      "Tanggal Barang diterima": tglSerahTerima,
+      "No FPKB": fpkb ? m.referensi : "",
+      "No BAST": fpkb?.nomor_bast ?? "",
+      "Awal": m.batch.nomorator_awal ?? "",
+      "Akhir": m.batch.nomorator_akhir ?? "",
       "Keterangan": m.keterangan ?? "",
+      "Kode GL": b.kode_gl ?? "",
+      "Kategori GL": b.kategori ?? "",
+      "Keterangan GL": b.keterangan_gl ?? "",
     };
   });
 

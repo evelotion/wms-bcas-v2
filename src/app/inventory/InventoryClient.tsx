@@ -413,7 +413,7 @@ export default function InventoryClient({ initialData }: { initialData: Inventor
                                 ) : (
                                   <div className="space-y-2">
                                     {item.recentMutasi.map((m) => {
-                                      const masuk = m.qty > 0;
+                                      const masuk = m.tipe !== "OUTBOUND";
                                       const cfg = masuk
                                         ? { bg: "bg-emerald-50", border: "border-emerald-100", text: "text-emerald-600", ikon: ArrowDownToLine, label: "MASUK" }
                                         : { bg: "bg-red-50", border: "border-red-100", text: "text-red-600", ikon: ArrowUpFromLine, label: "KELUAR" };

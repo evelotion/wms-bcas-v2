@@ -15,7 +15,7 @@ export interface BatchBarang {
 export interface MiniMutasi {
   id: string;
   tipe: string; // TipeMutasi enum sebagai string
-  qty: number; // signed
+  qty: number; // besaran absolut; arah masuk/keluar ditentukan dari `tipe`
   referensi: string | null;
   keterangan: string | null;
   tanggal: string; // ISO

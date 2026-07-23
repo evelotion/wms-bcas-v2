@@ -275,7 +275,7 @@ export default function DetailBarangClient({ id }: { id: string }) {
                       )}
                     </td>
                     <td className={`px-6 py-4 text-center font-bold ${m.tipe_mutasi === "INBOUND" ? "text-emerald-700" : "text-red-700"}`}>
-                      {m.qty_perubahan}
+                      {m.tipe_mutasi === "OUTBOUND" ? "-" : "+"}{Math.abs(m.qty_perubahan)}
                     </td>
                     <td className="px-6 py-4 text-center font-bold text-slate-700">
                       {m.saldo_akhir}

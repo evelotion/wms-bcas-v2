@@ -19,15 +19,17 @@ export async function getDashboardStats() {
   });
   const totalInbound = inboundMutations._sum.qty_perubahan || 0;
 
-  // 3. Total Outbound (Bulan Ini) - diubah jadi positif karena di DB nyimpen negatif
-  const outboundMutations = await prisma.mutasi_Ledger.aggregate({
-    where: { 
+  // 3. Total Outbound (Bulan Ini) - qty_perubahan OUTBOUND tidak konsisten tandanya
+  // (seed historis negatif, transaksi live positif), jadi _sum lalu Math.abs bisa salah
+  // kalau campuran. Ambil per baris, abs-kan masing-masing, baru dijumlah.
+  const outboundMutations = await prisma.mutasi_Ledger.findMany({
+    where: {
       tipe_mutasi: 'OUTBOUND',
       createdAt: { gte: startOfMonth }
     },
-    _sum: { qty_perubahan: true }
+    select: { qty_perubahan: true }
   });
-  const totalOutbound = Math.abs(outboundMutations._sum.qty_perubahan || 0);
+  const totalOutbound = outboundMutations.reduce((sum, m) => sum + Math.abs(m.qty_perubahan), 0);
 
   // 4. Cek Stok Menipis (Hitung total sisa batch vs batas minimum)
   const semuaBarang = await prisma.master_Barang.findMany({
