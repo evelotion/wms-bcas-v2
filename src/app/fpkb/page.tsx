@@ -3,8 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { getFpkbMenungguAdjustment, getFpkbMenungguSerahTerima, prosesAdjustmentFpkb, uploadServahTerimaFpkb } from "./actions";
 import { getSession } from "@/app/login/actions";
-import { generateFPKB } from "@/lib/generateFpkb";
-import { generateBAST } from "@/lib/generateBast";
 import { ClipboardCheck, Clock, ChevronDown, ChevronUp, PackageSearch, Truck, Printer, UploadCloud, ShieldAlert } from "lucide-react";
 
 const fileToBase64 = (file: File): Promise<string> =>
@@ -68,57 +66,12 @@ export default function FpkbPage() {
     setAdjustments((prev) => ({ ...prev, [itemId]: val }));
   };
 
-  const printFpkb = (fpkb: any, itemsWithRealisasi: { itemId: string; qtyRealisasi: number }[]) => {
-    const pdfItems = fpkb.items.map((it: any) => {
-      const adj = itemsWithRealisasi.find((a) => a.itemId === it.id);
-      const realisasi = adj ? adj.qtyRealisasi : it.qty_realisasi;
-      const isiPerPack = it.barang?.isi_per_satuan_besar || 0;
-      const hasSatuanBesar = !!it.barang?.satuan_besar && isiPerPack > 0;
-      const hargaSatuan = it.harga_satuan || 0;
-      const total = hargaSatuan * it.qty_diminta;
-      return {
-        kode: it.barang?.sku || "N/A",
-        nama: it.barang?.nama || "Item Unknown",
-        jumlahPack: hasSatuanBesar ? Math.ceil(it.qty_diminta / isiPerPack) : "-",
-        jumlahSatuan: `${it.qty_diminta} ${it.barang?.satuan || "Pcs"}`,
-        hargaSatuan,
-        total,
-        realisasiPack: hasSatuanBesar ? Math.ceil(realisasi / isiPerPack) : "-",
-        realisasiSatuan: `${realisasi} ${it.barang?.satuan || "Pcs"}`,
-        keterangan: "",
-      };
-    });
-
-    const grandTotal = pdfItems.reduce((sum: number, item: any) => sum + item.total, 0);
-
-    generateFPKB({
-      nomorFpkb: fpkb.nomor_fpkb,
-      noFpp: fpkb.header?.nomor_fpp,
-      tglRequest: new Date(fpkb.createdAt).toLocaleDateString("id-ID"),
-      cabang: fpkb.header?.cabang || "-",
-      pic: fpkb.header?.pic_nama,
-      items: pdfItems,
-      grandTotal,
-    });
-
-    if (fpkb.header?.wilayah === "NON_JABODETABEK") {
-      generateBAST({
-        nomorBast: fpkb.nomor_bast || "DRAFT",
-        noDokumenFpkb: fpkb.nomor_fpkb,
-        tglDokumen: new Date(fpkb.createdAt).toLocaleDateString("id-ID"),
-        cabang: fpkb.header?.cabang || "-",
-        items: fpkb.items.map((it: any) => {
-          const adj = itemsWithRealisasi.find((a) => a.itemId === it.id);
-          const realisasi = adj ? adj.qtyRealisasi : it.qty_realisasi;
-          return {
-            kode: it.barang?.sku || "N/A",
-            nama: it.barang?.nama || "Item Unknown",
-            qty: realisasi,
-            unit: it.barang?.satuan || "Pcs",
-            keterangan: "",
-          };
-        }),
-      });
+  // Cetak FPKB (dan BAST kalau NON_JABODETABEK & sudah punya nomor) via route print HTML.
+  // Dipanggil SETELAH proses adjustment commit, jadi data yang di-fetch route print sudah live/terbaru.
+  const printFpkb = (fpkb: any) => {
+    window.open(`/fpkb/print/${fpkb.id}`, "_blank");
+    if (fpkb.header?.wilayah === "NON_JABODETABEK" && fpkb.nomor_bast) {
+      window.open(`/bast/print/${fpkb.id}`, "_blank");
     }
   };
 
@@ -139,7 +92,7 @@ export default function FpkbPage() {
       } else {
         alert("✅ Adjustment berhasil!");
       }
-      printFpkb(fpkb, formattedAdjustments);
+      printFpkb(fpkb);
       setExpandedAdjust(null);
       fetchData();
     } else {
@@ -242,7 +195,15 @@ export default function FpkbPage() {
                       <td className="px-6 py-4 font-bold text-slate-800">FPKB #{fpkb.nomor_fpkb}</td>
                       <td className="px-6 py-4 text-slate-700">{fpkb.header?.cabang}</td>
                       <td className="px-6 py-4 text-slate-500 text-xs">{fpkb.header?.wilayah === "JABODETABEK" ? "JABODETABEK" : "NON-JABODETABEK"}</td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); printFpkb(fpkb); }}
+                          title="Cetak / Download FPKB"
+                          className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+                        >
+                          <Printer size={14} /> Cetak
+                        </button>
                         {expandedAdjust === fpkb.id ? <ChevronUp className="inline text-slate-400" /> : <ChevronDown className="inline text-slate-400" />}
                       </td>
                     </tr>
@@ -346,7 +307,7 @@ export default function FpkbPage() {
                                 <h3 className="font-bold text-slate-800">Upload Dokumen Serah Terima</h3>
                                 <button
                                   type="button"
-                                  onClick={() => printFpkb(fpkb, fpkb.items.map((it: any) => ({ itemId: it.id, qtyRealisasi: it.qty_realisasi })))}
+                                  onClick={() => printFpkb(fpkb)}
                                   className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
                                 >
                                   <Printer size={14} /> Cetak Ulang

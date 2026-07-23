@@ -39,6 +39,7 @@ export default function ClientAppShell({
   const bellRef = useRef<HTMLDivElement>(null);
 
   const isLoginPage = pathname === "/login";
+  const isPrintPage = pathname?.startsWith("/fpkb/print") || pathname?.startsWith("/bast/print");
 
   // Debounce pencarian barang ~250ms
   useEffect(() => {
@@ -93,7 +94,7 @@ export default function ClientAppShell({
     };
   }, []);
 
-  if (isLoginPage) {
+  if (isLoginPage || isPrintPage) {
     return <>{children}</>;
   }
 

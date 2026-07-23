@@ -149,6 +149,7 @@ export default function RequisitionPage() {
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
     const headerData = {
+      nomorFpp: formData.get("nomor_fpp") as string,
       cabang: formData.get("cabang") as string,
       wilayah: formData.get("wilayah") as "JABODETABEK" | "NON_JABODETABEK",
       pic_nama: (formData.get("pic_nama") as string) || undefined,
@@ -227,14 +228,21 @@ export default function RequisitionPage() {
               <div className="lg:col-span-2 space-y-5">
                 <div className="text-xs text-slate-500 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 flex items-center gap-2">
                   <Lock size={13} className="text-blue-500 shrink-0" />
-                  Nomor FPP &amp; FPKB akan digenerate otomatis oleh sistem setelah disimpan. Tanggal: {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} (otomatis).
+                  Nomor FPKB akan digenerate otomatis oleh sistem (nomor internal). Nomor FPP diisi manual sesuai dokumen asli dari cabang. Tanggal: {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} (otomatis).
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">No FPP (dari Cabang)</label>
+                    <input name="nomor_fpp" type="text" required placeholder="Contoh: 104/FPP/LOG/2026" className="w-full bg-white/70 border border-slate-200 rounded-xl px-4 py-2.5 focus:bg-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none text-sm transition-all" />
+                  </div>
+                  <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Cabang / Unit Kerja</label>
                     <input name="cabang" type="text" required placeholder="Contoh: KC Panakkukang" className="w-full bg-white/70 border border-slate-200 rounded-xl px-4 py-2.5 focus:bg-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none text-sm transition-all" />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Nama PIC (Opsional)</label>
                     <input name="pic_nama" type="text" placeholder="Dikosongin dulu kalau belum ada" className="w-full bg-white/70 border border-slate-200 rounded-xl px-4 py-2.5 focus:bg-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none text-sm transition-all" />

@@ -26,7 +26,7 @@ export async function getDaftarFpp(): Promise<any[]> {
 // (nomor FPP & nomor FPKB sama-sama digenerate di sini, sesuai alur: "FPP pure
 // berubah jadi FPKB, yang proses itu Staf").
 export async function createFppBaru(
-  headerData: { cabang: string; wilayah: 'JABODETABEK' | 'NON_JABODETABEK'; pic_nama?: string; keterangan?: string },
+  headerData: { nomorFpp: string; cabang: string; wilayah: 'JABODETABEK' | 'NON_JABODETABEK'; pic_nama?: string; keterangan?: string },
   detailsData: { barangId: string; qty: number }[],
   adminId?: string
 ) {
@@ -35,7 +35,16 @@ export async function createFppBaru(
       throw new Error("Minimal 1 barang harus diisi.");
     }
 
-    const nomorFpp = await getNextSequenceNumber("FPP");
+    const nomorFpp = (headerData.nomorFpp || "").trim();
+    if (!nomorFpp) {
+      throw new Error("No FPP (dari cabang) wajib diisi.");
+    }
+
+    const existingFpp = await prisma.permintaan_Header.findUnique({ where: { nomor_fpp: nomorFpp } });
+    if (existingFpp) {
+      throw new Error(`No FPP "${nomorFpp}" sudah pernah diinput sebelumnya.`);
+    }
+
     const nomorFpkb = await getNextSequenceNumber("FPKB");
 
     const hargaMap: Record<string, number> = {};
