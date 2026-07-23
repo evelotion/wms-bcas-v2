@@ -25,7 +25,7 @@ export default function RequisitionPage() {
 
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [fppItems, setFppItems] = useState([{ barangId: "", qty: 1, satuan: "" }]);
+  const [fppItems, setFppItems] = useState([{ barangId: "", qty: 1, satuan: "", satuanBesar: "", isiPerBesar: 1 }]);
   const [wilayah, setWilayah] = useState<"JABODETABEK" | "NON_JABODETABEK">("JABODETABEK");
 
   const [showBulk, setShowBulk] = useState(false);
@@ -69,14 +69,18 @@ export default function RequisitionPage() {
 
   const toggleRow = (id: string) => setExpandedRow(expandedRow === id ? null : id);
 
-  const handleAddFppItem = () => setFppItems([...fppItems, { barangId: "", qty: 1, satuan: "" }]);
+  const handleAddFppItem = () => setFppItems([...fppItems, { barangId: "", qty: 1, satuan: "", satuanBesar: "", isiPerBesar: 1 }]);
   const handleRemoveFppItem = (index: number) => setFppItems(fppItems.filter((_, i) => i !== index));
   const handleFppItemChange = (index: number, field: string, value: any) => {
     const newItems = [...fppItems];
     newItems[index] = { ...newItems[index], [field]: value };
     if (field === "barangId" && value) {
       const selectedBarang = masterBarang.find((b: any) => b.id === value);
-      if (selectedBarang) newItems[index].satuan = selectedBarang.satuan || "";
+      if (selectedBarang) {
+        newItems[index].satuan = selectedBarang.satuan || "";
+        newItems[index].satuanBesar = selectedBarang.satuan_besar || selectedBarang.satuan || "";
+        newItems[index].isiPerBesar = selectedBarang.isi_per_satuan_besar || 1;
+      }
     }
     setFppItems(newItems);
   };
@@ -102,7 +106,13 @@ export default function RequisitionPage() {
         );
 
         if (found) {
-          newItems.push({ barangId: found.id, qty, satuan: found.satuan });
+          newItems.push({
+            barangId: found.id,
+            qty,
+            satuan: found.satuan || "",
+            satuanBesar: found.satuan_besar || found.satuan || "",
+            isiPerBesar: found.isi_per_satuan_besar || 1,
+          });
         } else {
           notFound.push(cols[0].trim());
         }
@@ -128,7 +138,12 @@ export default function RequisitionPage() {
 
   const handleSubmitNewFpp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const validItems = fppItems.filter((item) => item.barangId !== "" && item.qty > 0);
+    const validItems = fppItems
+      .filter((item) => item.barangId !== "" && item.qty > 0)
+      .map((item) => ({
+        barangId: item.barangId,
+        qty: item.qty * (item.isiPerBesar || 1), // konversi satuan besar -> satuan kecil (satu-satunya titik konversi)
+      }));
     if (validItems.length === 0) return alert("Pilih minimal 1 barang beserta jumlahnya!");
 
     setIsSubmitting(true);
@@ -144,7 +159,7 @@ export default function RequisitionPage() {
 
     if (res.success) {
       alert(`✅ FPP berhasil disimpan!\nNomor FPP: ${res.nomor_fpp}\nNomor FPKB otomatis: ${res.nomor_fpkb}\n\nFPKB sudah masuk ke antrean Admin Gudang.`);
-      setFppItems([{ barangId: "", qty: 1, satuan: "" }]);
+      setFppItems([{ barangId: "", qty: 1, satuan: "", satuanBesar: "", isiPerBesar: 1 }]);
       setWilayah("JABODETABEK");
       (e.target as HTMLFormElement).reset();
       fetchData();
@@ -312,36 +327,53 @@ export default function RequisitionPage() {
                     </div>
                   )}
 
+                  <div className="grid grid-cols-12 gap-2 px-1 mb-1.5">
+                    <span className="col-span-6 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Barang</span>
+                    <span className="col-span-2 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-center">Jumlah</span>
+                    <span className="col-span-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-center">Satuan</span>
+                    <span className="col-span-1"></span>
+                  </div>
                   <div className="space-y-2.5">
-                    {fppItems.map((item, index) => (
-                      <div key={index} className="grid grid-cols-12 gap-2 items-center">
-                        <div className="col-span-6 relative">
-                          <SearchableSelect
-                            name={`items[${index}][barangId]`}
-                            options={masterBarang.map(b => ({ id: b.id, label: b.nama, sku: b.sku }))}
-                            value={item.barangId}
-                            onChange={(val) => handleFppItemChange(index, "barangId", val)}
-                            placeholder="Ketik SKU atau Nama Barang..."
-                            className="z-20"
-                          />
+                    {fppItems.map((item, index) => {
+                      const isiPerBesar = item.isiPerBesar || 1;
+                      const satuanTampil = isiPerBesar > 1 ? (item.satuanBesar || item.satuan) : item.satuan;
+                      return (
+                      <div key={index}>
+                        <div className="grid grid-cols-12 gap-2 items-center">
+                          <div className="col-span-6 relative">
+                            <SearchableSelect
+                              name={`items[${index}][barangId]`}
+                              options={masterBarang.map(b => ({ id: b.id, label: b.nama, sku: b.sku }))}
+                              value={item.barangId}
+                              onChange={(val) => handleFppItemChange(index, "barangId", val)}
+                              placeholder="Ketik SKU atau Nama Barang..."
+                              className="z-20"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <input type="number" min="1" value={item.qty} onChange={(e) => handleFppItemChange(index, "qty", parseInt(e.target.value) || 1)} className="w-full bg-white/70 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-sm text-center font-bold transition-all" required />
+                          </div>
+                          <div className="col-span-3">
+                            <span className="block w-full text-center text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 truncate">
+                              {satuanTampil || "—"}
+                            </span>
+                          </div>
+                          <div className="col-span-1 flex justify-center">
+                            {fppItems.length > 1 && (
+                              <button type="button" onClick={() => handleRemoveFppItem(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                <Trash2 size={16}/>
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <div className="col-span-2">
-                          <input type="number" min="1" value={item.qty} onChange={(e) => handleFppItemChange(index, "qty", parseInt(e.target.value) || 1)} className="w-full bg-white/70 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-sm text-center font-bold transition-all" required />
-                        </div>
-                        <div className="col-span-3">
-                          <span className="block w-full text-center text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 truncate">
-                            {item.satuan || "—"}
-                          </span>
-                        </div>
-                        <div className="col-span-1 flex justify-center">
-                          {fppItems.length > 1 && (
-                            <button type="button" onClick={() => handleRemoveFppItem(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                              <Trash2 size={16}/>
-                            </button>
-                          )}
-                        </div>
+                        {item.barangId && isiPerBesar > 1 && (
+                          <p className="text-[11px] text-blue-600 mt-1 ml-1">
+                            1 {item.satuanBesar} = {isiPerBesar.toLocaleString('id-ID')} {item.satuan} &rarr; total: {(Number(item.qty || 0) * isiPerBesar).toLocaleString('id-ID')} {item.satuan}
+                          </p>
+                        )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -358,7 +390,7 @@ export default function RequisitionPage() {
                       <span className="font-black text-slate-800 text-lg">{totalBarisValid}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500">Total Qty Diminta</span>
+                      <span className="text-slate-500">Total Qty <span className="text-[10px] normal-case text-slate-400">(satuan besar per barang)</span></span>
                       <span className="font-black text-slate-800 text-lg">{totalQtyDiminta}</span>
                     </div>
                     <div className="flex justify-between items-center">
