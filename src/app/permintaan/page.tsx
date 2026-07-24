@@ -20,8 +20,9 @@ export default function RequisitionPage() {
   const [masterBarang, setMasterBarang] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [userRole, setUserRole] = useState<string>("ADMIN");
+  const [userRole, setUserRole] = useState<string>("");
   const [userId, setUserId] = useState<string>("");
+  const [roleReady, setRoleReady] = useState(false);
 
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,12 +34,15 @@ export default function RequisitionPage() {
 
   useEffect(() => {
     fetchData();
-    getSession().then((session) => {
-      if (session) {
-        setUserRole(session.role);
-        setUserId(session.id);
-      }
-    });
+    getSession()
+      .then((session) => {
+        if (session) {
+          setUserRole(session.role);
+          setUserId(session.id);
+        }
+        setRoleReady(true);
+      })
+      .catch(() => setRoleReady(true));
   }, []);
 
   const fetchData = async () => {
@@ -216,7 +220,20 @@ export default function RequisitionPage() {
       </div>
 
       {/* ===== FORM INPUT FPP (HANYA ADMIN/STAF) ===== */}
-      {userRole === "ADMIN" && (
+      {!roleReady ? (
+        <div className="glass-panel rounded-2xl p-6">
+          <div className="h-6 w-48 bg-slate-100 rounded animate-pulse mb-4" />
+          <div className="h-32 bg-slate-50 rounded-xl animate-pulse" />
+        </div>
+      ) : userRole !== "ADMIN" ? (
+        <div className="glass-panel rounded-2xl p-6 text-center">
+          <div className="flex flex-col items-center gap-2 py-6 text-slate-500">
+            <Lock size={28} className="text-slate-300" />
+            <p className="font-semibold text-slate-700">Input FPP khusus Staf</p>
+            <p className="text-sm">Halaman input FPP hanya tersedia untuk Staf Logistik. Sebagai Admin Gudang, Anda dapat melihat Riwayat FPP di bawah dan memproses realisasi di menu FPKB.</p>
+          </div>
+        </div>
+      ) : (
         <div className="glass-panel rounded-2xl p-6">
           <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-5">
             <FilePlus size={20} className="text-blue-600" /> Form Input FPP Cabang
